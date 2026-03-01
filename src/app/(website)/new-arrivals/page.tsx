@@ -25,7 +25,7 @@ interface ProductCardData {
 export const metadata = createMetadata({
   title: "New Arrivals",
   description:
-    "Discover the latest additions to our jewelry collection — freshly crafted gold, diamond, and gemstone pieces at Abhishek Jewelers.",
+    "Discover the latest additions to our jewelry collection — freshly crafted gold, diamond, and gemstone pieces at Evaan Jewels.",
   path: "/new-arrivals",
   keywords: ["new jewelry", "latest jewelry", "new gold designs", "new diamond jewelry"],
 });

@@ -10,6 +10,7 @@ const translations: Record<string, Record<Language, string>> = {
   "nav.home": { en: "Home", hi: "होम" },
   "nav.categories": { en: "Categories", hi: "श्रेणियाँ" },
   "nav.newArrivals": { en: "New Arrivals", hi: "नई कलेक्शन" },
+  "nav.trackOrder": { en: "Track Order", hi: "ऑर्डर ट्रैक करें" },
   "nav.about": { en: "About", hi: "हमारे बारे में" },
   "nav.contact": { en: "Contact", hi: "संपर्क" },
   "nav.enquireNow": { en: "Enquire Now", hi: "पूछताछ करें" },
@@ -58,10 +59,10 @@ const translations: Record<string, Record<Language, string>> = {
   "trust.exchangeDesc": { en: "Hassle-free exchange policy", hi: "परेशानी-मुक्त विनिमय नीति" },
 
   // About Section
-  "about.title": { en: "About Abhishek Jewelers", hi: "अभिषेक ज्वेलर्स के बारे में" },
+  "about.title": { en: "About Evaan Jewels", hi: "इवान ज्वेल्स के बारे में" },
   "about.p1": {
-    en: "For over two decades, Abhishek Jewelers has been crafting exquisite jewelry that celebrates life's most precious moments. Every piece in our collection is BIS Hallmark certified, ensuring the highest standards of purity and craftsmanship.",
-    hi: "दो दशकों से अधिक समय से, अभिषेक ज्वेलर्स जीवन के सबसे कीमती पलों को मनाने वाले बेहतरीन आभूषण बना रहा है। हमारे संग्रह का हर आभूषण BIS हॉलमार्क प्रमाणित है।",
+    en: "For over two decades, Evaan Jewels has been crafting exquisite jewelry that celebrates life's most precious moments. Every piece in our collection is BIS Hallmark certified, ensuring the highest standards of purity and craftsmanship.",
+    hi: "दो दशकों से अधिक समय से, इवान ज्वेल्स जीवन के सबसे कीमती पलों को मनाने वाले बेहतरीन आभूषण बना रहा है। हमारे संग्रह का हर आभूषण BIS हॉलमार्क प्रमाणित है।",
   },
   "about.p2": {
     en: "From timeless gold bangles to stunning diamond rings, our master artisans blend traditional techniques with contemporary design to create jewelry that tells your unique story.",

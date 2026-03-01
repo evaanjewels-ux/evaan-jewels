@@ -211,8 +211,6 @@ ProductSchema.pre("validate", function () {
 });
 
 // Indexes
-ProductSchema.index({ slug: 1 }, { unique: true });
-ProductSchema.index({ productCode: 1 }, { unique: true });
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ gender: 1 });
 ProductSchema.index({ isActive: 1, isNewArrival: -1, createdAt: -1 });

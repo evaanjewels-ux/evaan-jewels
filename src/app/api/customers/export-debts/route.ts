@@ -16,7 +16,7 @@ export async function GET() {
 
     // Create workbook
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "Abhishek Jewelers";
+    workbook.creator = "Evaan Jewels";
     workbook.created = new Date();
 
     const sheet = workbook.addWorksheet("Customer Debts", {
@@ -26,7 +26,7 @@ export async function GET() {
     // Title row
     sheet.mergeCells("A1:H1");
     const titleCell = sheet.getCell("A1");
-    titleCell.value = "Abhishek Jewelers - Customer Debts Report";
+    titleCell.value = "Evaan Jewels - Customer Debts Report";
     titleCell.font = { size: 16, bold: true, color: { argb: "FF333333" } };
     titleCell.alignment = { horizontal: "center" };
 

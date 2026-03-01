@@ -251,6 +251,20 @@ export interface ICounter {
   seq: number;
 }
 
+// ─── Cart (client-side) ──────────────────────────────
+
+export interface ICartItem {
+  productId: string;
+  name: string;
+  slug: string;
+  productCode: string;
+  thumbnailImage: string;
+  totalPrice: number;
+  quantity: number;
+  category?: string;
+  metalComposition?: { variantName: string; weightInGrams: number }[];
+}
+
 // ─── API Response Types ──────────────────────────────
 
 export interface ApiResponse<T = unknown> {

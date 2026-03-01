@@ -67,11 +67,11 @@ interface BillPDFData {
 
 // Shop details — could be moved to env/config
 const SHOP = {
-  name: "Abhishek Jewelers",
+  name: "Evaan Jewels",
   tagline: "Premium Gold & Diamond Jewelry",
-  address: "Shop 44, Nonahara, Ghazipur, UP - 233303",
-  phone: "+91 89602 83274",
-  gstin: "XXAXXXXXXXXXX",
+  address: "2nd Floor, B-169, Mohan Garden, Uttam Nagar, Rama Park Road, Delhi - 110059",
+  phone: "+91 96541 48574",
+  gstin: "07BEFPG0156P2ZC",
 };
 
 /** Format amount for PDF without Unicode rupee symbol */
@@ -453,7 +453,7 @@ export async function generateBillPDF(bill: BillPDFData): Promise<Buffer> {
       y += 20;
 
       doc.fontSize(8).font("Helvetica-Bold").fillColor("#B8860B");
-      doc.text("Thank you for shopping with Abhishek Jewelers!", 50, y, {
+      doc.text("Thank you for shopping with Evaan Jewels!", 50, y, {
         width: pageWidth,
         align: "center",
       });

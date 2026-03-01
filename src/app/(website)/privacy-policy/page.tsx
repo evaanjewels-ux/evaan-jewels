@@ -125,14 +125,14 @@ export default function PrivacyPolicyPage() {
             </p>
             <ul className="mt-2 space-y-1 pl-0">
               <li>
-                <strong>Email:</strong> info@abhishekjewelers.com
+                <strong>Email:</strong> info@evaanjewels.com
               </li>
               <li>
-                <strong>Phone:</strong> +91 89602 83274
+                <strong>Phone:</strong> +91 96541 48574
               </li>
               <li>
-                <strong>Address:</strong> Shop 44, Nonahara, Ghazipur,
-                UP — 233303
+                <strong>Address:</strong> 2nd Floor, B-169, Mohan Garden, Uttam Nagar,
+                Delhi — 110059
               </li>
             </ul>
           </section>

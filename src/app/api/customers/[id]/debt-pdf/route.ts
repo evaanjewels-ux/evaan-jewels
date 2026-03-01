@@ -12,10 +12,10 @@ interface RouteParams {
 }
 
 const SHOP = {
-  name: "Abhishek Jewelers",
+  name: "Evaan Jewels",
   tagline: "Premium Gold & Diamond Jewelry",
-  address: "Shop 44, Nonahara, Ghazipur, UP - 233303",
-  phone: "+91 89602 83274",
+  address: "2nd Floor, B-169, Mohan Garden, Uttam Nagar, Rama Park Road, Delhi - 110059",
+  phone: "+91 96541 48574",
 };
 
 function fmtAmt(amount: number | undefined | null): string {
@@ -278,7 +278,7 @@ async function generateDebtSummaryPDF(customer: any): Promise<Buffer> {
 
       doc.fontSize(7).font("Helvetica").fillColor("#999999");
       doc.text(
-        "This is a computer-generated document from Abhishek Jewelers.",
+        "This is a computer-generated document from Evaan Jewels.",
         50, y, { width: pageWidth, align: "center" }
       );
       y += 10;

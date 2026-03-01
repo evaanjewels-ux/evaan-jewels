@@ -6,9 +6,9 @@ import { createMetadata } from "@/lib/seo";
 export const metadata = createMetadata({
   title: "About Us",
   description:
-    "Learn about Abhishek Jewelers — over 20 years of crafting premium BIS Hallmark certified gold & diamond jewelry. Our story, values, and commitment to excellence.",
+    "Learn about Evaan Jewels — over 20 years of crafting premium BIS Hallmark certified gold & diamond jewelry. Our story, values, and commitment to excellence.",
   path: "/about",
-  keywords: ["about abhishek jewelers", "jewelry store history", "BIS hallmark certified", "trusted jeweler"],
+  keywords: ["about evaan jewels", "jewelry store history", "BIS hallmark certified", "trusted jeweler"],
 });
 
 const values = [
@@ -68,7 +68,7 @@ export default function AboutPage() {
             Our Story
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-charcoal-400">
-            For over two decades, Abhishek Jewelers has been at the heart of celebrations,
+            For over two decades, Evaan Jewels has been at the heart of celebrations,
             crafting jewelry that marks life&apos;s most precious moments.
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function AboutPage() {
             </h2>
             <div className="mt-4 space-y-4 text-charcoal-400 leading-relaxed">
               <p>
-                Founded in 2005, Abhishek Jewelers began as a small family workshop with
+                Founded in 2005, Evaan Jewels began as a small family workshop with
                 a singular vision: to create jewelry that is as authentic and timeless as
                 the bonds it celebrates.
               </p>

@@ -40,7 +40,7 @@ export function ProductCard({ product, className, priority = false }: ProductCar
       <div className="relative aspect-square overflow-hidden bg-charcoal-50">
         <Image
           src={product.thumbnailImage}
-          alt={`${product.name}${product.category ? ` — ${product.category.name}` : ""} | Abhishek Jewelers`}
+          alt={`${product.name}${product.category ? ` — ${product.category.name}` : ""} | Evaan Jewels`}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
           className="object-cover transition-transform duration-500 group-hover:scale-105"

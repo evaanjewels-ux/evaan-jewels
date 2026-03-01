@@ -25,7 +25,7 @@ export function Logo({ className, size = "md" }: LogoProps) {
     >
       <Image
         src="/logo.png?v=2"
-        alt="Abhishek Jewelers"
+        alt="Evaan Jewels"
         width={dims.width}
         height={dims.height}
         className="object-contain"

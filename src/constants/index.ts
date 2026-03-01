@@ -1,4 +1,4 @@
-export const APP_NAME = "Abhishek Jewelers";
+export const APP_NAME = "Evaan Jewels";
 export const APP_DESCRIPTION =
   "Premium Gold & Diamond Jewelry — Crafted with Precision, Worn with Pride";
 

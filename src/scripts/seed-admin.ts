@@ -1,7 +1,7 @@
 /**
  * Admin Seed Script
  *
- * Creates an initial admin user for the Abhishek Jewelers application.
+ * Creates an initial admin user for the Evaan Jewels application.
  *
  * Usage:
  *   npx tsx src/scripts/seed-admin.ts
@@ -58,7 +58,7 @@ async function seedAdmin() {
 
     // Check if admin already exists
     const existingAdmin = await Admin.findOne({
-      email: "admin@abhishekjewelers.com",
+      email: "admin@evaanjewels.com",
     });
 
     if (existingAdmin) {
@@ -77,8 +77,8 @@ async function seedAdmin() {
 
     // Create admin
     const admin = await Admin.create({
-      name: "Abhishek",
-      email: "admin@abhishekjewelers.com",
+      name: "Aakash Gupta",
+      email: "admin@evaanjewels.com",
       password: hashedPassword,
       role: "super_admin",
       isActive: true,

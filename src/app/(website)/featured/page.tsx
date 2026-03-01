@@ -25,7 +25,7 @@ interface ProductCardData {
 export const metadata = createMetadata({
   title: "Featured Collection",
   description:
-    "Explore our handpicked featured collection — the finest gold, diamond, and gemstone jewelry at Abhishek Jewelers.",
+    "Explore our handpicked featured collection — the finest gold, diamond, and gemstone jewelry at Evaan Jewels.",
   path: "/featured",
   keywords: ["featured jewelry", "best jewelry", "premium gold jewelry", "top diamond pieces"],
 });

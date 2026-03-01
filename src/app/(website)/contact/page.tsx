@@ -6,9 +6,9 @@ import { createMetadata } from "@/lib/seo";
 export const metadata = createMetadata({
   title: "Contact Us",
   description:
-    "Get in touch with Abhishek Jewelers — visit our store, call us, or send us a message. We're here to help you find the perfect jewelry.",
+    "Get in touch with Evaan Jewels — visit our store, call us, or send us a message. We're here to help you find the perfect jewelry.",
   path: "/contact",
-  keywords: ["contact abhishek jewelers", "jewelry store location", "jewelry store phone"],
+  keywords: ["contact evaan jewels", "jewelry store location", "jewelry store phone"],
 });
 
 export default function ContactPage() {
@@ -58,7 +58,7 @@ export default function ContactPage() {
               </h3>
               <div className="mt-4 space-y-4">
                 <a
-                  href="tel:+918960283274"
+                  href="tel:+919654148574"
                   className="flex items-center gap-3 text-sm text-charcoal-500 transition-colors hover:text-gold-600"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gold-50 text-gold-600">
@@ -66,12 +66,12 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <p className="font-medium text-charcoal-700">Phone</p>
-                    <p>+91 89602 83274</p>
+                    <p>+91 96541 48574</p>
                   </div>
                 </a>
 
                 <a
-                  href="https://wa.me/918960283274"
+                  href="https://wa.me/919654148574"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 text-sm text-charcoal-500 transition-colors hover:text-gold-600"
@@ -86,7 +86,7 @@ export default function ContactPage() {
                 </a>
 
                 <a
-                  href="mailto:info@abhishekjewelers.com"
+                  href="mailto:info@evaanjewels.com"
                   className="flex items-center gap-3 text-sm text-charcoal-500 transition-colors hover:text-gold-600"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
@@ -94,7 +94,7 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <p className="font-medium text-charcoal-700">Email</p>
-                    <p>info@abhishekjewelers.com</p>
+                    <p>info@evaanjewels.com</p>
                   </div>
                 </a>
               </div>
@@ -109,8 +109,8 @@ export default function ContactPage() {
                 <div className="flex items-start gap-3 text-sm text-charcoal-500">
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" />
                   <span>
-                    Shop 44, Nonahara,<br />
-                    Ghazipur, UP — 233303
+                    2nd Floor, B-169, Mohan Garden,<br />
+                    Uttam Nagar, Delhi — 110059
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-sm text-charcoal-500">
@@ -122,14 +122,14 @@ export default function ContactPage() {
               {/* Map Embed */}
               <div className="mt-4 overflow-hidden rounded-lg">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d14400!2d83.5775!3d25.5878!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3991f0006adb1c0d%3A0x4c2b3e1b5e8e5e0!2sNonahara%2C%20Ghazipur%2C%20Uttar%20Pradesh%20233303!5e0!3m2!1sen!2sin!4v1"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d14400!2d77.035!3d28.6219!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d04f5f1c1c1c1%3A0x1a1a1a1a1a1a1a1a!2sMohan%20Garden%2C%20Uttam%20Nagar%2C%20Delhi%20110059!5e0!3m2!1sen!2sin!4v1"
                   width="100%"
                   height="200"
                   style={{ border: 0 }}
                   allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  title="Abhishek Jewelers Location"
+                  title="Evaan Jewels Location"
                   className="rounded-lg"
                 />
               </div>

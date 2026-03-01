@@ -2,7 +2,7 @@ import { Suspense } from "react";
 
 export const metadata = {
   title: "Admin Login",
-  description: "Sign in to Abhishek Jewelers Admin Panel",
+  description: "Sign in to Evaan Jewels Admin Panel",
 };
 
 export default function LoginLayout({

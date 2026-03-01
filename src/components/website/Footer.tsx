@@ -74,9 +74,9 @@ export function Footer() {
 
           {/* Mobile: compact contact info */}
           <div className="flex flex-wrap gap-4 text-xs text-charcoal-300 sm:hidden">
-            <a href="tel:+918960283274" className="flex items-center gap-1.5 hover:text-gold-400">
+            <a href="tel:+919654148574" className="flex items-center gap-1.5 hover:text-gold-400">
               <Phone className="h-3.5 w-3.5 text-gold-600" />
-              +91 89602 83274
+              +91 96541 48574
             </a>
             <span className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-gold-600" />
@@ -130,27 +130,27 @@ export function Footer() {
             <ul className="space-y-3">
               <li>
                 <a
-                  href="tel:+918960283274"
+                  href="tel:+919654148574"
                   className="flex items-center gap-2 text-sm text-charcoal-300 transition-colors hover:text-gold-400"
                 >
                   <Phone className="h-4 w-4 shrink-0 text-gold-600" />
-                  +91 89602 83274
+                  +91 96541 48574
                 </a>
               </li>
               <li>
                 <a
-                  href="mailto:info@abhishekjewelers.com"
+                  href="mailto:info@evaanjewels.com"
                   className="flex items-center gap-2 text-sm text-charcoal-300 transition-colors hover:text-gold-400"
                 >
                   <Mail className="h-4 w-4 shrink-0 text-gold-600" />
-                  info@abhishekjewelers.com
+                  info@evaanjewels.com
                 </a>
               </li>
               <li className="flex items-start gap-2 text-sm text-charcoal-300">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" />
                 <span>
-                  Shop 44, Nonahara,<br />
-                  Ghazipur, UP — 233303
+                  2nd Floor, B-169, Mohan Garden,<br />
+                  Uttam Nagar, Delhi — 110059
                 </span>
               </li>
               <li className="flex items-center gap-2 text-sm text-charcoal-300">

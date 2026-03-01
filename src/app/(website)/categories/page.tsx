@@ -13,7 +13,7 @@ export const fetchCache = "force-no-store";
 export const metadata = createMetadata({
   title: "All Categories",
   description:
-    "Browse our complete jewelry collection by category — gold rings, necklaces, bangles, earrings, diamonds, and more at Abhishek Jewelers.",
+    "Browse our complete jewelry collection by category — gold rings, necklaces, bangles, earrings, diamonds, and more at Evaan Jewels.",
   path: "/categories",
   keywords: ["jewelry categories", "gold rings", "necklaces", "bangles", "earrings", "diamond jewelry"],
 });

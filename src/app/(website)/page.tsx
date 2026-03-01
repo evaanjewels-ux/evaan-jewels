@@ -16,7 +16,7 @@ export const fetchCache = "force-no-store";
 export const metadata = createMetadata({
   title: "Premium Gold & Diamond Jewelry",
   description:
-    "Discover exquisite gold, diamond, and precious gemstone jewelry at Abhishek Jewelers. BIS Hallmark certified. Crafted with precision, worn with pride.",
+    "Discover exquisite gold, diamond, and precious gemstone jewelry at Evaan Jewels. BIS Hallmark certified. Crafted with precision, worn with pride.",
   path: "/",
   keywords: [
     "gold jewelry shop",
@@ -25,7 +25,7 @@ export const metadata = createMetadata({
     "BIS certified jewelry",
     "wedding jewelry",
     "bridal jewelry",
-    "abhishek jewelers",
+    "evaan jewels",
   ],
 });
 
@@ -166,10 +166,10 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="font-heading text-2xl font-bold text-charcoal-700 sm:text-3xl">
-              About Abhishek Jewelers
+              About Evaan Jewels
             </h2>
             <p className="mt-4 text-charcoal-400 leading-relaxed">
-              For over two decades, Abhishek Jewelers has been crafting exquisite
+              For over two decades, Evaan Jewels has been crafting exquisite
               jewelry that celebrates life&apos;s most precious moments. Every piece in
               our collection is BIS Hallmark certified, ensuring the highest standards
               of purity and craftsmanship.

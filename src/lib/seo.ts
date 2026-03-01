@@ -2,27 +2,27 @@ import { Metadata } from "next";
 import { APP_NAME, APP_DESCRIPTION } from "@/constants";
 
 export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://abhishekjewelers.com";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://evaanjewels.com";
 
 export const SHOP_INFO = {
   name: APP_NAME,
   description: APP_DESCRIPTION,
-  phone: "+918960283274",
-  whatsapp: "+918960283274",
-  email: "info@abhishekjewelers.com",
+  phone: "+919654148574",
+  whatsapp: "+919654148574",
+  email: "info@evaanjewels.com",
   address: {
-    street: "Shop 44, Nonahara",
-    locality: "Nonahara",
-    city: "Ghazipur",
-    state: "Uttar Pradesh",
-    postalCode: "233303",
+    street: "2nd Floor, B-169, Mohan Garden, Uttam Nagar, Rama Park Road",
+    locality: "Uttam Nagar",
+    city: "Delhi",
+    state: "Delhi",
+    postalCode: "110059",
     country: "IN",
   },
   hours: "Mon-Sat 10:00 AM - 8:00 PM",
-  gstin: "07XXXXX1234X1ZX",
+  gstin: "07BEFPG0156P2ZC",
   coordinates: {
-    lat: 25.5878,
-    lng: 83.5775,
+    lat: 28.6219,
+    lng: 77.0350,
   },
 };
 
@@ -61,7 +61,7 @@ export function createMetadata({
       "jewelry",
       "gold jewelry",
       "diamond jewelry",
-      "abhishek jewelers",
+      "evaan jewels",
       "hallmark gold",
       "BIS certified",
     ],

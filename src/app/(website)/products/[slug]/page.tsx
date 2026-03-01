@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { ProductGallery } from "@/components/website/ProductGallery";
 import { PriceBreakdown } from "@/components/website/PriceBreakdown";
 import { ProductCard } from "@/components/website/ProductCard";
+import { AddToCartButton } from "@/components/website/AddToCartButton";
 import { JsonLd } from "@/components/shared/JsonLd";
 import { formatCurrency, capitalize } from "@/lib/utils";
 import { productJsonLd, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
@@ -39,7 +40,7 @@ export async function generateMetadata({
 
     const description =
       product.metaDescription ||
-      `${product.name} — Premium ${categoryName} from Abhishek Jewelers. ${
+      `${product.name} — Premium ${categoryName} from Evaan Jewels. ${
         product.metalComposition?.[0]?.variantName || "Gold"
       } jewelry, BIS Hallmark certified. Price: ${formatCurrency(product.totalPrice)}`;
 
@@ -50,10 +51,10 @@ export async function generateMetadata({
       description,
       alternates: { canonical: url },
       openGraph: {
-        title: `${product.name} | Abhishek Jewelers`,
+        title: `${product.name} | Evaan Jewels`,
         description,
         url,
-        siteName: "Abhishek Jewelers",
+        siteName: "Evaan Jewels",
         type: "website",
         images: product.thumbnailImage
           ? [{ url: product.thumbnailImage, alt: product.name }]
@@ -61,7 +62,7 @@ export async function generateMetadata({
       },
       twitter: {
         card: "summary_large_image",
-        title: `${product.name} | Abhishek Jewelers`,
+        title: `${product.name} | Evaan Jewels`,
         description,
         images: product.thumbnailImage ? [product.thumbnailImage] : [],
       },
@@ -116,7 +117,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const category = product.category as { name: string; slug: string } | null;
 
   const whatsappMessage = encodeURIComponent(
-    `Hi Abhishek Jewelers, I'm interested in ${product.name} (${product.productCode}). Could you provide more details?`
+    `Hi Evaan Jewels, I'm interested in ${product.name} (${product.productCode}). Could you provide more details?`
   );
 
   return (
@@ -124,7 +125,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <JsonLd
         data={productJsonLd({
           name: product.name,
-          description: product.description || `${product.name} by Abhishek Jewelers`,
+          description: product.description || `${product.name} by Evaan Jewels`,
           image: product.thumbnailImage || `${SITE_URL}/og-image.jpg`,
           sku: product.productCode,
           price: product.totalPrice,
@@ -261,23 +262,39 @@ export default async function ProductPage({ params }: ProductPageProps) {
             )}
 
             {/* CTAs */}
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a
-                href={`https://wa.me/918960283274?text=${whatsappMessage}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-gold-500 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-gold-600 hover:shadow-gold active:scale-[0.97]"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Enquire on WhatsApp
-              </a>
-              <a
-                href="tel:+918960283274"
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-charcoal-200 px-6 py-3.5 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
-              >
-                <Phone className="h-4 w-4" />
-                Call Us
-              </a>
+            <div className="mt-8 flex flex-col gap-3">
+              <AddToCartButton
+                product={{
+                  _id: product._id,
+                  name: product.name,
+                  slug: product.slug,
+                  productCode: product.productCode,
+                  thumbnailImage: product.thumbnailImage,
+                  totalPrice: product.totalPrice,
+                  isOutOfStock: product.isOutOfStock,
+                  category: category ? { name: category.name } : undefined,
+                  metalComposition: product.metalComposition,
+                }}
+                size="lg"
+              />
+              <div className="flex gap-3">
+                <a
+                  href={`https://wa.me/919654148574?text=${whatsappMessage}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-charcoal-200 px-6 py-3 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp
+                </a>
+                <a
+                  href="tel:+919654148574"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-charcoal-200 px-6 py-3 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
+                >
+                  <Phone className="h-4 w-4" />
+                  Call Us
+                </a>
+              </div>
             </div>
           </div>
         </div>

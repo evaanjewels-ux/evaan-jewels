@@ -37,7 +37,7 @@ export async function generateMetadata({
 
     const description =
       category.description ||
-      `Explore our ${category.name} collection — premium handcrafted jewelry at Abhishek Jewelers.`;
+      `Explore our ${category.name} collection — premium handcrafted jewelry at Evaan Jewels.`;
 
     return {
       title: category.name,
@@ -46,17 +46,17 @@ export async function generateMetadata({
         canonical: `${SITE_URL}/categories/${slug}`,
       },
       openGraph: {
-        title: `${category.name} | Abhishek Jewelers`,
+        title: `${category.name} | Evaan Jewels`,
         description,
         url: `${SITE_URL}/categories/${slug}`,
-        siteName: "Abhishek Jewelers",
+        siteName: "Evaan Jewels",
         ...(category.image && {
           images: [{ url: category.image, alt: category.name }],
         }),
       },
       twitter: {
         card: "summary_large_image",
-        title: `${category.name} | Abhishek Jewelers`,
+        title: `${category.name} | Evaan Jewels`,
         description,
       },
     };

@@ -10,7 +10,7 @@ export const DEFAULT_SEO = {
     "jewelry",
     "gold jewelry",
     "diamond jewelry",
-    "abhishek jewelers",
+    "evaan jewels",
     "gold rings",
     "gold necklaces",
     "diamond rings",

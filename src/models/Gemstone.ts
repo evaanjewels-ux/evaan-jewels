@@ -78,8 +78,6 @@ GemstoneSchema.pre("validate", function () {
   }
 });
 
-// Indexes
-GemstoneSchema.index({ slug: 1 }, { unique: true });
 
 const Gemstone: Model<IGemstone> =
   mongoose.models.Gemstone ||

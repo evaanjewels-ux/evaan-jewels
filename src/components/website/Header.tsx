@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Phone, MapPin, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/Logo";
+import { CartIcon } from "@/components/website/CartIcon";
 import { WEBSITE_NAV_ITEMS } from "@/constants/navigation";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 
@@ -14,6 +15,7 @@ const NAV_KEYS: Record<string, string> = {
   "/": "nav.home",
   "/categories": "nav.categories",
   "/new-arrivals": "nav.newArrivals",
+  "/track-order": "nav.trackOrder",
   "/about": "nav.about",
   "/contact": "nav.contact",
 };
@@ -45,16 +47,17 @@ export function Header() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <a
-              href="tel:+918960283274"
+              href="tel:+919654148574"
               className="flex items-center gap-1.5 transition-colors hover:text-gold-400"
             >
               <Phone className="h-3 w-3" />
-              <span>+91 89602 83274</span>
+              <span>+91 96541 48574</span>
             </a>
             <span className="hidden text-charcoal-500 md:inline">|</span>
             <span className="hidden items-center gap-1.5 md:flex">
               <MapPin className="h-3 w-3" />
-              <span>Nonahara, Ghazipur</span>
+              <span>2nd Floor, B-169, Mohan Garden,
+Uttam Nagar, Delhi — 110059 </span>
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -119,10 +122,11 @@ export function Header() {
             })}
           </nav>
 
-          {/* Desktop CTA + Language Toggle */}
+          {/* Desktop CTA + Cart + Language Toggle */}
           <div className="hidden items-center gap-3 md:flex">
+            <CartIcon />
             <a
-              href="https://wa.me/918960283274?text=Hi%20Abhishek%20Jewelers%2C%20I%27m%20interested%20in%20your%20jewelry%20collection."
+              href="https://wa.me/919654148574?text=Hi%20Evaan%20Jewels%2C%20I%27m%20interested%20in%20your%20jewelry%20collection."
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-lg bg-gold-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-gold-600 hover:shadow-md active:scale-[0.97]"
@@ -131,8 +135,9 @@ export function Header() {
             </a>
           </div>
 
-          {/* Mobile: Language Toggle + Menu */}
+          {/* Mobile: Cart + Language Toggle + Menu */}
           <div className="flex items-center gap-2 md:hidden">
+            <CartIcon />
             <button
               onClick={toggleLanguage}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-charcoal-500 transition-colors hover:bg-charcoal-50"
@@ -186,7 +191,7 @@ export function Header() {
                 {/* Mobile CTA */}
                 <div className="mt-4 border-t border-charcoal-100 pt-4">
                   <a
-                    href="https://wa.me/918960283274?text=Hi%20Abhishek%20Jewelers%2C%20I%27m%20interested%20in%20your%20jewelry%20collection."
+                    href="https://wa.me/919654148574?text=Hi%20Evaan%20Jewels%2C%20I%27m%20interested%20in%20your%20jewelry%20collection."
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold-500 px-5 py-3 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-gold-600"
@@ -194,7 +199,7 @@ export function Header() {
                     {t("nav.enquireWhatsApp")}
                   </a>
                   <a
-                    href="tel:+918960283274"
+                    href="tel:+919654148574"
                     className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-charcoal-200 px-5 py-3 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
                   >
                     <Phone className="h-4 w-4" />

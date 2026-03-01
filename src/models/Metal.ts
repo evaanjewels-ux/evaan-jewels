@@ -70,8 +70,6 @@ MetalSchema.pre("validate", function () {
   }
 });
 
-// Indexes
-MetalSchema.index({ slug: 1 }, { unique: true });
 
 const Metal: Model<IMetal> =
   mongoose.models.Metal || mongoose.model<IMetal>("Metal", MetalSchema);

@@ -1,7 +1,7 @@
 import { NewProductClient } from "./NewProductClient";
 
 export const metadata = {
-  title: "Add New Product | Abhishek Jewelers",
+  title: "Add New Product | Evaan Jewels",
   description: "Create a new jewellery product",
 };
 
