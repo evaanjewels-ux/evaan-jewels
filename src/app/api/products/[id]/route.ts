@@ -101,8 +101,18 @@ export async function PUT(
     });
   } catch (error) {
     if (error instanceof Error && error.name === "ZodError") {
+      const zodError = error as unknown as { issues: unknown[] };
+      console.error("PUT /api/products/[id] ZodError issues:", JSON.stringify(zodError.issues, null, 2));
       return NextResponse.json(
-        { success: false, error: "Validation failed", details: error },
+        { success: false, error: "Validation failed", details: zodError.issues },
+        { status: 400 }
+      );
+    }
+    // Mongoose validation error
+    if (error instanceof Error && error.name === "ValidationError") {
+      console.error("PUT /api/products/[id] Mongoose ValidationError:", error.message);
+      return NextResponse.json(
+        { success: false, error: error.message },
         { status: 400 }
       );
     }

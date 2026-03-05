@@ -504,6 +504,21 @@ function ProductCard({
             </Badge>
             <PriceDisplay amount={product.totalPrice} size="sm" />
           </div>
+          {/* Mobile-visible actions (hover overlay is not accessible on touch) */}
+          <div className="flex items-center gap-2 mt-3 sm:hidden">
+            <Link href={`/admin/products/${product._id}/edit`} className="flex-1">
+              <Button variant="outline" size="sm" className="w-full">
+                <Pencil size={14} />
+                Edit
+              </Button>
+            </Link>
+            <Button variant="ghost" size="sm" onClick={onToggleStock}>
+              {product.isOutOfStock ? <Eye size={14} /> : <EyeOff size={14} />}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onDelete} className="text-error">
+              <Trash2 size={14} />
+            </Button>
+          </div>
         </div>
       </div>
     </Card>

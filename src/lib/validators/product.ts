@@ -41,6 +41,9 @@ const otherChargeSchema = z.object({
   amount: z.number().min(0),
 });
 
+// ─── Shared loose image schema (no URL validation — we trust stored R2 URLs) ──
+const looseImageArraySchema = z.array(z.string().min(1)).max(8).optional();
+
 export const productCreateSchema = z.object({
   name: z.string().min(1, "Product name is required").max(200).trim(),
   productCode: z.string().min(1).optional(),
@@ -90,7 +93,12 @@ export const productCreateSchema = z.object({
   lastPriceSync: z.date().optional(),
 });
 
-export const productUpdateSchema = productCreateSchema.partial();
+// For updates we relax image URL validation because stored R2 links may not
+// pass the strict `z.string().url()` check (e.g. if R2_PUBLIC_URL was
+// misconfigured when the image was uploaded).
+export const productUpdateSchema = productCreateSchema
+  .partial()
+  .extend({ images: looseImageArraySchema });
 
 export type ProductCreateInput = z.infer<typeof productCreateSchema>;
 export type ProductUpdateInput = z.infer<typeof productUpdateSchema>;

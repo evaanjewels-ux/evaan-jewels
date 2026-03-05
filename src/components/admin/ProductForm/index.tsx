@@ -172,25 +172,29 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         category: formData.basic.category,
         gender: formData.basic.gender,
 
-        metalComposition: formData.composition.metals.map((m: MetalEntry) => ({
-          metal: m.metalId,
-          variantId: m.variantId,
-          variantName: m.variantName,
-          weightInGrams: m.weightInGrams,
-          pricePerGram: m.pricePerGram,
-          subtotal: m.weightInGrams * m.pricePerGram,
-          wastageCharges: m.wastageCharges,
-        })),
-        gemstoneComposition: formData.composition.gemstones.map((g: GemstoneEntry) => ({
-          gemstone: g.gemstoneId,
-          variantId: g.variantId,
-          variantName: g.variantName,
-          weightInCarats: g.weightInCarats,
-          quantity: g.quantity,
-          pricePerCarat: g.pricePerCarat,
-          subtotal: g.weightInCarats * g.quantity * g.pricePerCarat,
-          wastageCharges: g.wastageCharges,
-        })),
+        metalComposition: formData.composition.metals
+          .filter((m: MetalEntry) => m.metalId !== "" && m.variantId !== "")
+          .map((m: MetalEntry) => ({
+            metal: m.metalId,
+            variantId: m.variantId,
+            variantName: m.variantName,
+            weightInGrams: m.weightInGrams,
+            pricePerGram: m.pricePerGram,
+            subtotal: m.weightInGrams * m.pricePerGram,
+            wastageCharges: m.wastageCharges,
+          })),
+        gemstoneComposition: formData.composition.gemstones
+          .filter((g: GemstoneEntry) => g.gemstoneId !== "" && g.variantId !== "")
+          .map((g: GemstoneEntry) => ({
+            gemstone: g.gemstoneId,
+            variantId: g.variantId,
+            variantName: g.variantName,
+            weightInCarats: g.weightInCarats,
+            quantity: g.quantity,
+            pricePerCarat: g.pricePerCarat,
+            subtotal: g.weightInCarats * g.quantity * g.pricePerCarat,
+            wastageCharges: g.wastageCharges,
+          })),
 
         makingCharges: formData.charges.makingCharges,
         // wastageCharges is now stored per-composition item above
@@ -422,48 +426,63 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
       colors: (data.colors as string[]) || [],
     },
     composition: {
-      metals: metalComposition.map((m) => {
-        const metalRef = m.metal as Record<string, unknown> | string;
-        const mWastage = (m.wastageCharges as Record<string, unknown>) || null;
-        return {
-          metalId: typeof metalRef === "object" ? (metalRef._id as string) : (metalRef as string),
-          metalName:
-            typeof metalRef === "object"
-              ? (metalRef.name as string) || ""
-              : "",
-          variantId: (m.variantId as string) || "",
-          variantName: (m.variantName as string) || "",
-          weightInGrams: (m.weightInGrams as number) || 0,
-          pricePerGram: (m.pricePerGram as number) || 0,
-          wastageCharges: mWastage
-            ? {
-                type: (mWastage.type as "fixed" | "percentage") || "percentage",
-                value: (mWastage.value as number) || 0,
-              }
-            : { type: "percentage" as const, value: 0 },
-        };
-      }),
-      gemstones: gemstoneComposition.map((g) => {
-        const gemRef = g.gemstone as Record<string, unknown> | string;
-        const gWastage = (g.wastageCharges as Record<string, unknown>) || null;
-        return {
-          gemstoneId:
-            typeof gemRef === "object" ? (gemRef._id as string) : (gemRef as string),
-          gemstoneName:
-            typeof gemRef === "object" ? (gemRef.name as string) || "" : "",
-          variantId: (g.variantId as string) || "",
-          variantName: (g.variantName as string) || "",
-          weightInCarats: (g.weightInCarats as number) || 0,
-          quantity: (g.quantity as number) || 1,
-          pricePerCarat: (g.pricePerCarat as number) || 0,
-          wastageCharges: gWastage
-            ? {
-                type: (gWastage.type as "fixed" | "percentage") || "percentage",
-                value: (gWastage.value as number) || 0,
-              }
-            : { type: "percentage" as const, value: 0 },
-        };
-      }),
+      metals: metalComposition
+        .map((m) => {
+          const metalRef = m.metal as Record<string, unknown> | string | null;
+          const mWastage = (m.wastageCharges as Record<string, unknown>) || null;
+          const metalId =
+            (typeof metalRef === "object" && metalRef !== null)
+              ? (metalRef._id as string) || ""
+              : (metalRef as string) || "";
+          return {
+            metalId,
+            metalName:
+              (typeof metalRef === "object" && metalRef !== null)
+                ? (metalRef.name as string) || ""
+                : "",
+            variantId: (m.variantId as string) || "",
+            variantName: (m.variantName as string) || "",
+            weightInGrams: (m.weightInGrams as number) || 0,
+            pricePerGram: (m.pricePerGram as number) || 0,
+            wastageCharges: mWastage
+              ? {
+                  type: (mWastage.type as "fixed" | "percentage") || "percentage",
+                  value: (mWastage.value as number) || 0,
+                }
+              : { type: "percentage" as const, value: 0 },
+          };
+        })
+        // Drop any composition entries whose metal ref was deleted from the DB
+        .filter((m) => m.metalId !== ""),
+      gemstones: gemstoneComposition
+        .map((g) => {
+          const gemRef = g.gemstone as Record<string, unknown> | string | null;
+          const gWastage = (g.wastageCharges as Record<string, unknown>) || null;
+          const gemstoneId =
+            (typeof gemRef === "object" && gemRef !== null)
+              ? (gemRef._id as string) || ""
+              : (gemRef as string) || "";
+          return {
+            gemstoneId,
+            gemstoneName:
+              (typeof gemRef === "object" && gemRef !== null)
+                ? (gemRef.name as string) || ""
+                : "",
+            variantId: (g.variantId as string) || "",
+            variantName: (g.variantName as string) || "",
+            weightInCarats: (g.weightInCarats as number) || 0,
+            quantity: (g.quantity as number) || 1,
+            pricePerCarat: (g.pricePerCarat as number) || 0,
+            wastageCharges: gWastage
+              ? {
+                  type: (gWastage.type as "fixed" | "percentage") || "percentage",
+                  value: (gWastage.value as number) || 0,
+                }
+              : { type: "percentage" as const, value: 0 },
+          };
+        })
+        // Drop any composition entries whose gemstone ref was deleted from the DB
+        .filter((g) => g.gemstoneId !== ""),
     },
     charges: {
       makingCharges: {
