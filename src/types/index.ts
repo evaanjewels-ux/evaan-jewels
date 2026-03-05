@@ -149,6 +149,8 @@ export interface IProduct {
   grossWeight: number;
   netWeight: number;
   size?: string;
+  sizes: string[];
+  colors: string[];
   lastPriceSync: Date;
 
   createdAt: Date;
@@ -206,6 +208,8 @@ export interface IBillItem {
   product?: Types.ObjectId;
   quantity: number;
   productSnapshot: Record<string, unknown>;
+  selectedSize?: string;
+  selectedColor?: string;
 }
 
 export interface IBill {
@@ -254,6 +258,8 @@ export interface ICounter {
 // ─── Cart (client-side) ──────────────────────────────
 
 export interface ICartItem {
+  /** Unique key: productId|selectedSize|selectedColor — allows same product in different sizes as separate items */
+  cartItemId: string;
   productId: string;
   name: string;
   slug: string;
@@ -263,6 +269,8 @@ export interface ICartItem {
   quantity: number;
   category?: string;
   metalComposition?: { variantName: string; weightInGrams: number }[];
+  selectedSize?: string;
+  selectedColor?: string;
 }
 
 // ─── API Response Types ──────────────────────────────

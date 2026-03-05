@@ -211,6 +211,9 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         metaTitle: formData.images.metaTitle || undefined,
         metaDescription: formData.images.metaDescription || undefined,
 
+        sizes: formData.basic.sizes || [],
+        colors: formData.basic.colors || [],
+
         grossWeight: formData.composition.metals.reduce(
           (s: number, m: MetalEntry) => s + m.weightInGrams,
           0
@@ -372,6 +375,8 @@ function getDefaultFormData(): ProductFormData {
       description: "",
       category: "",
       gender: "unisex",
+      sizes: [],
+      colors: [],
     },
     composition: {
       metals: [],
@@ -413,6 +418,8 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
           ? ((data.category as Record<string, unknown>)?._id as string) || ""
           : (data.category as string) || "",
       gender: (data.gender as "men" | "women" | "unisex" | "kids") || "unisex",
+      sizes: (data.sizes as string[]) || [],
+      colors: (data.colors as string[]) || [],
     },
     composition: {
       metals: metalComposition.map((m) => {

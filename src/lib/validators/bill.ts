@@ -17,6 +17,8 @@ const discountSchema = z.object({
 const billItemSchema = z.object({
   product: z.string().min(1, "Product ID required"),
   quantity: z.number().int().min(1).default(1),
+  selectedSize: z.string().optional(),
+  selectedColor: z.string().optional(),
 });
 
 export const billCreateSchema = z

@@ -33,6 +33,7 @@ export function AddToCartButton({
     if (product.isOutOfStock) return;
 
     const item: ICartItem = {
+      cartItemId: `${product._id}||`,
       productId: product._id,
       name: product.name,
       slug: product.slug,

@@ -25,6 +25,8 @@ const BillItemSchema = new Schema(
   {
     product: { type: Schema.Types.ObjectId, ref: "Product" },
     quantity: { type: Number, default: 1, min: 1 },
+    selectedSize: { type: String },
+    selectedColor: { type: String },
     productSnapshot: { type: Schema.Types.Mixed },
   },
   { _id: false }

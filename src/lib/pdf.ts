@@ -36,6 +36,8 @@ interface ProductSnapshotPDF {
   subtotal?: number;
   gstAmount?: number;
   totalPrice?: number;
+  selectedSize?: string;
+  selectedColor?: string;
 }
 
 interface BillPDFData {
@@ -212,6 +214,16 @@ export async function generateBillPDF(bill: BillPDFData): Promise<Buffer> {
           doc.font("Helvetica").text(snap.category.name, 360, y);
         }
         y += 20;
+
+        // Variant row (size / color)
+        if (snap.selectedSize || snap.selectedColor) {
+          let variantStr = snap.selectedSize ? `Size: ${snap.selectedSize}` : "";
+          if (snap.selectedColor)
+            variantStr += `${snap.selectedSize ? "  \u00b7  " : ""}Colour: ${snap.selectedColor}`;
+          doc.font("Helvetica-Bold").text("Variant:", 58, y);
+          doc.font("Helvetica").text(variantStr, 140, y);
+          y += 14;
+        }
 
         // ─── PRICE TABLE ────────────────────────────
         ensureSpace(30);

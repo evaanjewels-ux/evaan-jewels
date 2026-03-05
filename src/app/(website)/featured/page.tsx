@@ -2,7 +2,8 @@ import dbConnect from "@/lib/db";
 import Product from "@/models/Product";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { ProductCard } from "@/components/website/ProductCard";
-import { createMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/shared/JsonLd";
+import { createMetadata, breadcrumbJsonLd, collectionPageJsonLd, itemListJsonLd, SITE_URL } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -23,11 +24,19 @@ interface ProductCardData {
 }
 
 export const metadata = createMetadata({
-  title: "Featured Collection",
+  title: "Featured Collection — Bestselling Gold & Diamond Jewelry",
   description:
-    "Explore our handpicked featured collection — the finest gold, diamond, and gemstone jewelry at Evaan Jewels.",
+    "Explore our handpicked featured collection — the finest gold, diamond, and gemstone jewelry. Bestsellers and staff picks at Evaan Jewels, Delhi.",
   path: "/featured",
-  keywords: ["featured jewelry", "best jewelry", "premium gold jewelry", "top diamond pieces"],
+  keywords: [
+    "featured jewelry",
+    "bestselling jewelry",
+    "premium gold jewelry",
+    "top diamond pieces",
+    "popular jewelry designs",
+    "best gold jewelry delhi",
+    "staff picks jewelry",
+  ],
 });
 
 async function getFeaturedProducts(retries = 2): Promise<ProductCardData[]> {
@@ -53,6 +62,32 @@ export default async function FeaturedPage() {
 
   return (
     <div className="py-8 md:py-12">
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", url: SITE_URL },
+          { name: "Featured Collection", url: `${SITE_URL}/featured` },
+        ])}
+      />
+      <JsonLd
+        data={collectionPageJsonLd({
+          name: "Featured Collection",
+          description:
+            "Handpicked bestselling jewelry pieces from Evaan Jewels.",
+          url: `${SITE_URL}/featured`,
+        })}
+      />
+      {products.length > 0 && (
+        <JsonLd
+          data={itemListJsonLd(
+            products.map((product, i) => ({
+              name: product.name,
+              url: `${SITE_URL}/products/${product.slug}`,
+              image: product.thumbnailImage,
+              position: i + 1,
+            }))
+          )}
+        />
+      )}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <Breadcrumb
           homeHref="/"

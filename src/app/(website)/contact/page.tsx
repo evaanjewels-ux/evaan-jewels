@@ -1,19 +1,36 @@
 import { Phone, Mail, MapPin, Clock, MessageCircle } from "lucide-react";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { ContactForm } from "@/components/website/ContactForm";
-import { createMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/shared/JsonLd";
+import { createMetadata, localBusinessJsonLd, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
 
 export const metadata = createMetadata({
-  title: "Contact Us",
+  title: "Contact Evaan Jewels — Visit, Call or WhatsApp",
   description:
-    "Get in touch with Evaan Jewels — visit our store, call us, or send us a message. We're here to help you find the perfect jewelry.",
+    "Get in touch with Evaan Jewels in Mohan Garden, Uttam Nagar, Delhi. Call +91 96541 48574, WhatsApp us, or visit our store. Open Mon-Sat 10 AM - 8 PM.",
   path: "/contact",
-  keywords: ["contact evaan jewels", "jewelry store location", "jewelry store phone"],
+  keywords: [
+    "contact evaan jewels",
+    "jewelry store location",
+    "jewelry store phone",
+    "jewelry shop uttam nagar",
+    "jewelry shop mohan garden",
+    "evaan jewels address",
+    "evaan jewels phone number",
+    "jewelry shop near me delhi",
+  ],
 });
 
 export default function ContactPage() {
   return (
     <div className="py-8 md:py-12">
+      <JsonLd data={localBusinessJsonLd()} />
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", url: SITE_URL },
+          { name: "Contact", url: `${SITE_URL}/contact` },
+        ])}
+      />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <Breadcrumb
           homeHref="/"

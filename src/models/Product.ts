@@ -196,6 +196,8 @@ const ProductSchema = new Schema<IProduct>(
     grossWeight: { type: Number, default: 0 },
     netWeight: { type: Number, default: 0 },
     size: { type: String },
+    sizes: { type: [String], default: [] },
+    colors: { type: [String], default: [] },
     lastPriceSync: { type: Date, default: Date.now },
   },
   {

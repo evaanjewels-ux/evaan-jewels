@@ -75,6 +75,8 @@ export const productCreateSchema = z.object({
   grossWeight: z.number().min(0).optional().default(0),
   netWeight: z.number().min(0).optional().default(0),
   size: z.string().optional(),
+  sizes: z.array(z.string()).optional().default([]),
+  colors: z.array(z.string()).optional().default([]),
 
   // Calculated price fields (recalculated server-side; passed through here so Zod doesn't strip them)
   metalTotal: z.number().min(0).optional().default(0),

@@ -2,7 +2,8 @@ import dbConnect from "@/lib/db";
 import Product from "@/models/Product";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { ProductCard } from "@/components/website/ProductCard";
-import { createMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/shared/JsonLd";
+import { createMetadata, breadcrumbJsonLd, collectionPageJsonLd, itemListJsonLd, SITE_URL } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -23,11 +24,19 @@ interface ProductCardData {
 }
 
 export const metadata = createMetadata({
-  title: "New Arrivals",
+  title: "New Arrivals — Latest Gold & Diamond Jewelry Designs",
   description:
-    "Discover the latest additions to our jewelry collection — freshly crafted gold, diamond, and gemstone pieces at Evaan Jewels.",
+    "Discover the latest additions to our jewelry collection — freshly crafted gold, diamond, and gemstone pieces. BIS hallmarked, handcrafted at Evaan Jewels, Delhi.",
   path: "/new-arrivals",
-  keywords: ["new jewelry", "latest jewelry", "new gold designs", "new diamond jewelry"],
+  keywords: [
+    "new jewelry arrivals",
+    "latest gold jewelry designs",
+    "new diamond jewelry",
+    "trending jewelry 2026",
+    "new gold ring designs",
+    "latest necklace designs",
+    "new jewelry collection delhi",
+  ],
 });
 
 async function getNewArrivals(retries = 2): Promise<ProductCardData[]> {
@@ -54,6 +63,32 @@ export default async function NewArrivalsPage() {
 
   return (
     <div className="py-8 md:py-12">
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", url: SITE_URL },
+          { name: "New Arrivals", url: `${SITE_URL}/new-arrivals` },
+        ])}
+      />
+      <JsonLd
+        data={collectionPageJsonLd({
+          name: "New Arrivals",
+          description:
+            "The latest additions to our handcrafted jewelry collection at Evaan Jewels.",
+          url: `${SITE_URL}/new-arrivals`,
+        })}
+      />
+      {products.length > 0 && (
+        <JsonLd
+          data={itemListJsonLd(
+            products.map((product, i) => ({
+              name: product.name,
+              url: `${SITE_URL}/products/${product.slug}`,
+              image: product.thumbnailImage,
+              position: i + 1,
+            }))
+          )}
+        />
+      )}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <Breadcrumb
           homeHref="/"

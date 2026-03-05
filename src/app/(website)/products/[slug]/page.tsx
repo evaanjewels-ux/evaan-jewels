@@ -1,7 +1,6 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MessageCircle, Phone } from "lucide-react";
 import dbConnect from "@/lib/db";
 import Product from "@/models/Product";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
@@ -9,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { ProductGallery } from "@/components/website/ProductGallery";
 import { PriceBreakdown } from "@/components/website/PriceBreakdown";
 import { ProductCard } from "@/components/website/ProductCard";
-import { AddToCartButton } from "@/components/website/AddToCartButton";
+import { ProductActions } from "@/components/website/ProductActions";
 import { JsonLd } from "@/components/shared/JsonLd";
 import { formatCurrency, capitalize } from "@/lib/utils";
 import { productJsonLd, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
@@ -40,31 +39,47 @@ export async function generateMetadata({
 
     const description =
       product.metaDescription ||
-      `${product.name} — Premium ${categoryName} from Evaan Jewels. ${
+      `Buy ${product.name} — Premium ${categoryName} from Evaan Jewels, Delhi. ${
         product.metalComposition?.[0]?.variantName || "Gold"
-      } jewelry, BIS Hallmark certified. Price: ${formatCurrency(product.totalPrice)}`;
+      } jewelry, BIS Hallmark certified. Price: ${formatCurrency(product.totalPrice)}. ${
+        product.grossWeight > 0 ? `Weight: ${product.grossWeight}g.` : ""
+      } Free shipping & easy exchange.`;
 
     const url = `${SITE_URL}/products/${slug}`;
 
     return {
-      title: `${product.name} — ${categoryName}`,
+      title: `${product.name} — ${categoryName} | Buy Online`,
       description,
       alternates: { canonical: url },
+      keywords: [
+        product.name.toLowerCase(),
+        categoryName.toLowerCase(),
+        `${categoryName.toLowerCase()} online`,
+        `buy ${categoryName.toLowerCase()}`,
+        product.metalComposition?.[0]?.variantName?.toLowerCase() || "gold",
+        "evaan jewels",
+        "hallmark jewelry",
+        "BIS certified",
+      ].filter(Boolean),
       openGraph: {
-        title: `${product.name} | Evaan Jewels`,
+        title: `${product.name} | Evaan Jewels — Buy Online`,
         description,
         url,
         siteName: "Evaan Jewels",
         type: "website",
-        images: product.thumbnailImage
-          ? [{ url: product.thumbnailImage, alt: product.name }]
-          : [],
+        images: product.images?.length
+          ? product.images.map((img: string) => ({ url: img, alt: product.name }))
+          : product.thumbnailImage
+            ? [{ url: product.thumbnailImage, alt: product.name }]
+            : [],
       },
       twitter: {
         card: "summary_large_image",
         title: `${product.name} | Evaan Jewels`,
         description,
-        images: product.thumbnailImage ? [product.thumbnailImage] : [],
+        images: product.images?.length
+          ? [product.images[0]]
+          : product.thumbnailImage ? [product.thumbnailImage] : [],
       },
     };
   } catch {
@@ -127,11 +142,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
           name: product.name,
           description: product.description || `${product.name} by Evaan Jewels`,
           image: product.thumbnailImage || `${SITE_URL}/og-image.jpg`,
+          images: product.images?.length ? product.images : undefined,
           sku: product.productCode,
           price: product.totalPrice,
           availability: product.isOutOfStock ? "OutOfStock" : "InStock",
           url: `${SITE_URL}/products/${product.slug}`,
           category: category?.name,
+          material: product.metalComposition?.[0]?.variantName,
+          weight: product.grossWeight > 0 ? String(product.grossWeight) : undefined,
+          sizes: product.sizes?.length ? product.sizes : undefined,
+          colors: product.colors?.length ? product.colors : undefined,
         })}
       />
       <JsonLd
@@ -261,41 +281,23 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </div>
             )}
 
-            {/* CTAs */}
-            <div className="mt-8 flex flex-col gap-3">
-              <AddToCartButton
-                product={{
-                  _id: product._id,
-                  name: product.name,
-                  slug: product.slug,
-                  productCode: product.productCode,
-                  thumbnailImage: product.thumbnailImage,
-                  totalPrice: product.totalPrice,
-                  isOutOfStock: product.isOutOfStock,
-                  category: category ? { name: category.name } : undefined,
-                  metalComposition: product.metalComposition,
-                }}
-                size="lg"
-              />
-              <div className="flex gap-3">
-                <a
-                  href={`https://wa.me/919654148574?text=${whatsappMessage}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-charcoal-200 px-6 py-3 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  WhatsApp
-                </a>
-                <a
-                  href="tel:+919654148574"
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-charcoal-200 px-6 py-3 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
-                >
-                  <Phone className="h-4 w-4" />
-                  Call Us
-                </a>
-              </div>
-            </div>
+            {/* Available Sizes & Colors + CTA (interactive client component) */}
+            <ProductActions
+              product={{
+                _id: product._id,
+                name: product.name,
+                slug: product.slug,
+                productCode: product.productCode,
+                thumbnailImage: product.thumbnailImage,
+                totalPrice: product.totalPrice,
+                isOutOfStock: product.isOutOfStock,
+                category: category ? { name: category.name } : undefined,
+                metalComposition: product.metalComposition,
+                sizes: product.sizes,
+                colors: product.colors,
+              }}
+              whatsappMessage={whatsappMessage}
+            />
           </div>
         </div>
 

@@ -1,14 +1,24 @@
 import { Shield, Award, Gem, Clock, Heart, Users } from "lucide-react";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { TrustBadges } from "@/components/website/TrustBadges";
-import { createMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/shared/JsonLd";
+import { createMetadata, organizationJsonLd, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
 
 export const metadata = createMetadata({
-  title: "About Us",
+  title: "About Evaan Jewels — Our Story & Legacy",
   description:
-    "Learn about Evaan Jewels — over 20 years of crafting premium BIS Hallmark certified gold & diamond jewelry. Our story, values, and commitment to excellence.",
+    "Learn about Evaan Jewels — over 20 years of crafting premium BIS Hallmark certified gold & diamond jewelry in Delhi. Our story, values, and commitment to excellence. Trusted by 10,000+ families.",
   path: "/about",
-  keywords: ["about evaan jewels", "jewelry store history", "BIS hallmark certified", "trusted jeweler"],
+  keywords: [
+    "about evaan jewels",
+    "jewelry store history",
+    "BIS hallmark certified",
+    "trusted jeweler",
+    "jewelry shop delhi",
+    "family jewelers",
+    "gold jewelry craftsmanship",
+    "evaan jewels story",
+  ],
 });
 
 const values = [
@@ -53,6 +63,13 @@ const values = [
 export default function AboutPage() {
   return (
     <div className="py-8 md:py-12">
+      <JsonLd data={organizationJsonLd()} />
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", url: SITE_URL },
+          { name: "About Us", url: `${SITE_URL}/about` },
+        ])}
+      />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <Breadcrumb
           homeHref="/"

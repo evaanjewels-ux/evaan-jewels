@@ -7,7 +7,7 @@ import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { ProductCard } from "@/components/website/ProductCard";
 import { CategoryFilters } from "./CategoryFilters";
 import { JsonLd } from "@/components/shared/JsonLd";
-import { breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
+import { breadcrumbJsonLd, collectionPageJsonLd, itemListJsonLd, SITE_URL } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -40,8 +40,17 @@ export async function generateMetadata({
       `Explore our ${category.name} collection — premium handcrafted jewelry at Evaan Jewels.`;
 
     return {
-      title: category.name,
+      title: `${category.name} — Handcrafted Gold & Diamond Jewelry`,
       description,
+      keywords: [
+        category.name.toLowerCase(),
+        `${category.name.toLowerCase()} jewelry`,
+        `buy ${category.name.toLowerCase()} online`,
+        `gold ${category.name.toLowerCase()}`,
+        `diamond ${category.name.toLowerCase()}`,
+        "hallmark jewelry",
+        "evaan jewels",
+      ],
       alternates: {
         canonical: `${SITE_URL}/categories/${slug}`,
       },
@@ -156,6 +165,32 @@ export default async function CategoryPage({
           { name: category.name, url: `${SITE_URL}/categories/${category.slug}` },
         ])}
       />
+      <JsonLd
+        data={collectionPageJsonLd({
+          name: category.name,
+          description:
+            category.description ||
+            `Explore our ${category.name} collection at Evaan Jewels.`,
+          url: `${SITE_URL}/categories/${category.slug}`,
+        })}
+      />
+      {products.length > 0 && (
+        <JsonLd
+          data={itemListJsonLd(
+            products.map(
+              (
+                product: { name: string; slug: string; thumbnailImage: string },
+                i: number
+              ) => ({
+                name: product.name,
+                url: `${SITE_URL}/products/${product.slug}`,
+                image: product.thumbnailImage,
+                position: i + 1,
+              })
+            )
+          )}
+        />
+      )}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">

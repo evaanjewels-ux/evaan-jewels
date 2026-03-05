@@ -8,15 +8,15 @@ import { CategoryGrid } from "@/components/website/CategoryGrid";
 import { ProductGrid } from "@/components/website/ProductGrid";
 import { TrustBadges } from "@/components/website/TrustBadges";
 import { JsonLd } from "@/components/shared/JsonLd";
-import { createMetadata, organizationJsonLd, localBusinessJsonLd } from "@/lib/seo";
+import { createMetadata, organizationJsonLd, localBusinessJsonLd, websiteJsonLd, faqJsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export const metadata = createMetadata({
-  title: "Premium Gold & Diamond Jewelry",
+  title: "Premium Gold & Diamond Jewelry | Buy Hallmark Gold Online",
   description:
-    "Discover exquisite gold, diamond, and precious gemstone jewelry at Evaan Jewels. BIS Hallmark certified. Crafted with precision, worn with pride.",
+    "Shop exquisite BIS Hallmark certified gold, diamond, and precious gemstone jewelry at Evaan Jewels, Delhi. 22K/24K gold rings, necklaces, bangles, earrings. Trusted jewellers since 2000. Free shipping across India.",
   path: "/",
   keywords: [
     "gold jewelry shop",
@@ -26,6 +26,28 @@ export const metadata = createMetadata({
     "wedding jewelry",
     "bridal jewelry",
     "evaan jewels",
+    "gold rings online",
+    "gold necklace",
+    "gold bangles",
+    "gold earrings",
+    "diamond ring",
+    "solitaire ring",
+    "mangalsutra",
+    "gold chain",
+    "gold pendant",
+    "buy gold online india",
+    "gold price today",
+    "22k gold jewelry",
+    "24k gold jewelry",
+    "jewelry shop delhi",
+    "uttam nagar jewellers",
+    "mohan garden jewelry",
+    "gold jewelry near me",
+    "certified gold jewelry",
+    "rose gold jewelry",
+    "platinum jewelry",
+    "engagement rings",
+    "wedding rings",
   ],
 });
 
@@ -134,6 +156,41 @@ export default function HomePage() {
     <>
       <JsonLd data={organizationJsonLd()} />
       <JsonLd data={localBusinessJsonLd()} />
+      <JsonLd data={websiteJsonLd()} />
+      <JsonLd
+        data={faqJsonLd([
+          {
+            question: "Is Evaan Jewels gold BIS Hallmark certified?",
+            answer:
+              "Yes, all gold jewelry at Evaan Jewels is BIS Hallmark certified, ensuring the highest standards of purity. We offer 22K (916) and 24K (999.9) gold options.",
+          },
+          {
+            question: "What payment methods does Evaan Jewels accept?",
+            answer:
+              "We accept Cash, Credit/Debit Cards, UPI (GPay, PhonePe, Paytm), and Bank Transfers. EMI options are also available on select purchases.",
+          },
+          {
+            question: "Does Evaan Jewels offer custom jewelry design?",
+            answer:
+              "Yes, we offer custom jewelry design services. Contact us via WhatsApp or visit our store in Mohan Garden, Uttam Nagar, Delhi to discuss your requirements.",
+          },
+          {
+            question: "What is the return policy at Evaan Jewels?",
+            answer:
+              "We offer a hassle-free exchange policy. Gold jewelry can be exchanged at current market rates. Please visit our store with the original bill for exchanges.",
+          },
+          {
+            question: "Where is Evaan Jewels located?",
+            answer:
+              "Evaan Jewels is located at 2nd Floor, B-169, Mohan Garden, Uttam Nagar, Rama Park Road, Delhi — 110059. We are open Monday to Saturday, 10:00 AM to 8:00 PM.",
+          },
+          {
+            question: "Does Evaan Jewels ship across India?",
+            answer:
+              "Yes, we offer insured shipping across India. All shipments are fully insured and delivered via trusted courier partners with tracking.",
+          },
+        ])}
+      />
 
       {/* Hero — renders immediately */}
       <HeroSection />

@@ -33,7 +33,7 @@ interface PriceBreakdownProps {
 }
 
 export function PriceBreakdown({ product }: PriceBreakdownProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   return (
     <div className="rounded-xl border border-charcoal-100 bg-white">
@@ -54,7 +54,7 @@ export function PriceBreakdown({ product }: PriceBreakdownProps) {
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-1 rounded-lg border border-charcoal-200 px-3 py-2 text-xs font-medium text-charcoal-500 transition-colors hover:bg-charcoal-50"
         >
-          {isExpanded ? "Hide" : "View"} Breakdown
+          {isExpanded ? "Hide" : "Show"} Breakdown
           {isExpanded ? (
             <ChevronUp className="h-3.5 w-3.5" />
           ) : (

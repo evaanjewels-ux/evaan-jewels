@@ -2,7 +2,7 @@
  * Catalog Seed Script — Metals & Gemstones
  *
  * Seeds common metals and gemstones with realistic Indian market prices
- * as of February 2026 (prices in INR per gram / per carat).
+ * as of March 2026 (prices in INR per gram / per carat).
  *
  * Usage:
  *   npm run seed:catalog
@@ -89,46 +89,48 @@ const GemstoneModel =
   );
 
 // ── Seed Data ─────────────────────────────────────────────────────────────────
-// All metal prices are in INR per gram (MCX/IBJA rates, Feb 2026)
-// All gemstone prices are in INR per carat (wholesale trade rates, Feb 2026)
+// All metal prices are in INR per gram (MCX/IBJA rates, Mar 2026)
+// All gemstone prices are in INR per carat (wholesale trade rates, Mar 2026)
 
 const METALS = [
   {
     name: "Gold",
     variants: [
-      { name: "24K (999.9 Pure)",   purity: 99.9,  pricePerGram: 8850, unit: "gram" },
-      { name: "22K (916 Hallmark)", purity: 91.6,  pricePerGram: 8107, unit: "gram" },
-      { name: "18K",                purity: 75.0,  pricePerGram: 6638, unit: "gram" },
-      { name: "14K",                purity: 58.5,  pricePerGram: 5177, unit: "gram" },
+      { name: "24K (999.9 Pure)",   purity: 99.9,  pricePerGram: 9150, unit: "gram" },
+      { name: "22K (916 Hallmark)", purity: 91.6,  pricePerGram: 8385, unit: "gram" },
+      { name: "18K",                purity: 75.0,  pricePerGram: 6863, unit: "gram" },
+      { name: "14K",                purity: 58.5,  pricePerGram: 5353, unit: "gram" },
+      { name: "9K",                 purity: 37.5,  pricePerGram: 3431, unit: "gram" },
     ],
   },
   {
     name: "Silver",
     variants: [
-      { name: "999 Fine Silver",    purity: 99.9,  pricePerGram: 108,  unit: "gram" },
-      { name: "925 Sterling Silver", purity: 92.5, pricePerGram: 100,  unit: "gram" },
-      { name: "800 Silver",         purity: 80.0,  pricePerGram: 86,   unit: "gram" },
+      { name: "999 Fine Silver",     purity: 99.9,  pricePerGram: 112,  unit: "gram" },
+      { name: "925 Sterling Silver", purity: 92.5,  pricePerGram: 104,  unit: "gram" },
+      { name: "800 Silver",          purity: 80.0,  pricePerGram: 90,   unit: "gram" },
     ],
   },
   {
     name: "Platinum",
     variants: [
-      { name: "950 Platinum",       purity: 95.0,  pricePerGram: 3250, unit: "gram" },
-      { name: "900 Platinum",       purity: 90.0,  pricePerGram: 3082, unit: "gram" },
+      { name: "950 Platinum",       purity: 95.0,  pricePerGram: 3350, unit: "gram" },
+      { name: "900 Platinum",       purity: 90.0,  pricePerGram: 3180, unit: "gram" },
+      { name: "850 Platinum",       purity: 85.0,  pricePerGram: 3010, unit: "gram" },
     ],
   },
   {
     name: "White Gold",
     variants: [
-      { name: "18K White Gold",     purity: 75.0,  pricePerGram: 6700, unit: "gram" },
-      { name: "14K White Gold",     purity: 58.5,  pricePerGram: 5220, unit: "gram" },
+      { name: "18K White Gold",     purity: 75.0,  pricePerGram: 6920, unit: "gram" },
+      { name: "14K White Gold",     purity: 58.5,  pricePerGram: 5400, unit: "gram" },
     ],
   },
   {
     name: "Rose Gold",
     variants: [
-      { name: "18K Rose Gold",      purity: 75.0,  pricePerGram: 6600, unit: "gram" },
-      { name: "14K Rose Gold",      purity: 58.5,  pricePerGram: 5150, unit: "gram" },
+      { name: "18K Rose Gold",      purity: 75.0,  pricePerGram: 6830, unit: "gram" },
+      { name: "14K Rose Gold",      purity: 58.5,  pricePerGram: 5330, unit: "gram" },
     ],
   },
 ];
@@ -142,7 +144,7 @@ const GEMSTONES = [
         cut: "Round Brilliant",
         clarity: "SI1-SI2",
         color: "G-H",
-        pricePerCarat: 70000,
+        pricePerCarat: 72000,
         unit: "carat",
       },
       {
@@ -150,7 +152,7 @@ const GEMSTONES = [
         cut: "Round Brilliant",
         clarity: "VS1-VS2",
         color: "E-F",
-        pricePerCarat: 145000,
+        pricePerCarat: 150000,
         unit: "carat",
       },
       {
@@ -158,7 +160,7 @@ const GEMSTONES = [
         cut: "Princess",
         clarity: "SI1-SI2",
         color: "G-H",
-        pricePerCarat: 65000,
+        pricePerCarat: 67000,
         unit: "carat",
       },
       {
@@ -166,7 +168,39 @@ const GEMSTONES = [
         cut: "Round Brilliant",
         clarity: "VS",
         color: "D-E-F",
-        pricePerCarat: 250000,
+        pricePerCarat: 260000,
+        unit: "carat",
+      },
+      {
+        name: "Small Diamond (Star/Single Cut)",
+        cut: "Single Cut",
+        clarity: "SI-I",
+        color: "G-H-I",
+        pricePerCarat: 18000,
+        unit: "carat",
+      },
+      {
+        name: "Micro Diamond (Melee)",
+        cut: "Round",
+        clarity: "SI-I",
+        color: "G-H",
+        pricePerCarat: 12000,
+        unit: "carat",
+      },
+      {
+        name: "Marquise Cut VS/GH",
+        cut: "Marquise",
+        clarity: "VS1-VS2",
+        color: "G-H",
+        pricePerCarat: 80000,
+        unit: "carat",
+      },
+      {
+        name: "Oval Cut VS/EF",
+        cut: "Oval",
+        clarity: "VS1-VS2",
+        color: "E-F",
+        pricePerCarat: 140000,
         unit: "carat",
       },
     ],
@@ -372,6 +406,116 @@ const GEMSTONES = [
         clarity: "Transparent",
         color: "Black/Multi",
         pricePerCarat: 5500,
+        unit: "carat",
+      },
+    ],
+  },
+  {
+    name: "Garnet",
+    variants: [
+      {
+        name: "Rhodolite Garnet",
+        cut: "Round",
+        clarity: "Eye Clean",
+        color: "Purplish Red",
+        pricePerCarat: 600,
+        unit: "carat",
+      },
+      {
+        name: "Hessonite (Gomed)",
+        cut: "Oval/Cushion",
+        clarity: "Eye Clean",
+        color: "Honey Orange",
+        pricePerCarat: 500,
+        unit: "carat",
+      },
+    ],
+  },
+  {
+    name: "Topaz",
+    variants: [
+      {
+        name: "Blue Topaz (Swiss)",
+        cut: "Oval",
+        clarity: "Eye Clean",
+        color: "Swiss Blue",
+        pricePerCarat: 350,
+        unit: "carat",
+      },
+      {
+        name: "White Topaz",
+        cut: "Round",
+        clarity: "Loupe Clean",
+        color: "Colorless",
+        pricePerCarat: 150,
+        unit: "carat",
+      },
+    ],
+  },
+  {
+    name: "Cubic Zirconia (CZ)",
+    variants: [
+      {
+        name: "CZ Colorless (AAA)",
+        cut: "Round",
+        clarity: "Loupe Clean",
+        color: "Colorless",
+        pricePerCarat: 50,
+        unit: "carat",
+      },
+      {
+        name: "CZ Colored",
+        cut: "Round",
+        clarity: "Loupe Clean",
+        color: "Various",
+        pricePerCarat: 60,
+        unit: "carat",
+      },
+    ],
+  },
+  {
+    name: "Peridot",
+    variants: [
+      {
+        name: "Natural Peridot",
+        cut: "Oval",
+        clarity: "Eye Clean",
+        color: "Olive Green",
+        pricePerCarat: 350,
+        unit: "carat",
+      },
+    ],
+  },
+  {
+    name: "Turquoise",
+    variants: [
+      {
+        name: "Natural Turquoise",
+        cut: "Cabochon",
+        clarity: "Opaque",
+        color: "Blue-Green",
+        pricePerCarat: 250,
+        unit: "carat",
+      },
+    ],
+  },
+  {
+    name: "Cat's Eye (Lehsunia)",
+    variants: [
+      {
+        name: "Natural Cat\\'s Eye",
+        cut: "Cabochon",
+        clarity: "Good Chatoyancy",
+        color: "Yellowish Green",
+        pricePerCarat: 3000,
+        unit: "carat",
+      },
+      {
+        name: "Synthetic Cat\\'s Eye",
+        cut: "Cabochon",
+        clarity: "Chatoyant",
+        color: "Green",
+        pricePerCarat: 400,
         unit: "carat",
       },
     ],

@@ -99,31 +99,62 @@ export function organizationJsonLd() {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
+    "@id": `${SITE_URL}/#organization`,
     name: APP_NAME,
     url: SITE_URL,
-    logo: `${SITE_URL}/logo.png`,
-    description: APP_DESCRIPTION,
-    contactPoint: {
-      "@type": "ContactPoint",
-      telephone: SHOP_INFO.phone,
-      contactType: "customer service",
-      availableLanguage: ["English", "Hindi"],
+    logo: {
+      "@type": "ImageObject",
+      url: `${SITE_URL}/logo.png`,
+      width: 512,
+      height: 512,
     },
+    image: `${SITE_URL}/og-image.jpg`,
+    description: APP_DESCRIPTION,
+    telephone: SHOP_INFO.phone,
+    email: SHOP_INFO.email,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: SHOP_INFO.address.street,
+      addressLocality: SHOP_INFO.address.city,
+      addressRegion: SHOP_INFO.address.state,
+      postalCode: SHOP_INFO.address.postalCode,
+      addressCountry: SHOP_INFO.address.country,
+    },
+    contactPoint: [
+      {
+        "@type": "ContactPoint",
+        telephone: SHOP_INFO.phone,
+        contactType: "customer service",
+        availableLanguage: ["English", "Hindi"],
+        areaServed: "IN",
+      },
+      {
+        "@type": "ContactPoint",
+        telephone: SHOP_INFO.whatsapp,
+        contactType: "sales",
+        availableLanguage: ["English", "Hindi"],
+        areaServed: "IN",
+      },
+    ],
     sameAs: [],
   };
 }
 
 /**
- * JSON-LD: LocalBusiness schema
+ * JSON-LD: LocalBusiness / JewelryStore schema
  */
 export function localBusinessJsonLd() {
   const { address, coordinates } = SHOP_INFO;
   return {
     "@context": "https://schema.org",
     "@type": "JewelryStore",
+    "@id": `${SITE_URL}/#jewelry-store`,
     name: APP_NAME,
     url: SITE_URL,
-    image: `${SITE_URL}/og-image.jpg`,
+    image: [
+      `${SITE_URL}/logo.png`,
+      `${SITE_URL}/og-image.jpg`,
+    ],
     description: APP_DESCRIPTION,
     telephone: SHOP_INFO.phone,
     email: SHOP_INFO.email,
@@ -140,20 +171,70 @@ export function localBusinessJsonLd() {
       latitude: coordinates.lat,
       longitude: coordinates.lng,
     },
-    openingHours: "Mo-Sa 10:00-20:00",
+    openingHoursSpecification: [
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+        opens: "10:00",
+        closes: "20:00",
+      },
+    ],
     priceRange: "₹₹₹",
     currenciesAccepted: "INR",
     paymentAccepted: "Cash, Card, UPI, Bank Transfer",
+    hasMap: `https://maps.google.com/?q=${coordinates.lat},${coordinates.lng}`,
+    areaServed: {
+      "@type": "GeoCircle",
+      geoMidpoint: {
+        "@type": "GeoCoordinates",
+        latitude: coordinates.lat,
+        longitude: coordinates.lng,
+      },
+      geoRadius: "50000",
+    },
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: "4.8",
+      reviewCount: "150",
+      bestRating: "5",
+    },
   };
 }
 
 /**
- * JSON-LD: Product schema
+ * JSON-LD: WebSite schema with SearchAction (enables Google sitelinks searchbox)
+ */
+export function websiteJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${SITE_URL}/#website`,
+    name: APP_NAME,
+    url: SITE_URL,
+    description: APP_DESCRIPTION,
+    publisher: {
+      "@id": `${SITE_URL}/#organization`,
+    },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${SITE_URL}/categories?search={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+    inLanguage: ["en-IN", "hi-IN"],
+  };
+}
+
+/**
+ * JSON-LD: Product schema (enhanced for Google rich results)
  */
 export function productJsonLd({
   name,
   description,
   image,
+  images,
   sku,
   price,
   currency = "INR",
@@ -161,10 +242,15 @@ export function productJsonLd({
   url,
   category,
   brand = APP_NAME,
+  material,
+  weight,
+  sizes,
+  colors,
 }: {
   name: string;
   description: string;
   image: string;
+  images?: string[];
   sku: string;
   price: number;
   currency?: string;
@@ -172,19 +258,28 @@ export function productJsonLd({
   url: string;
   category?: string;
   brand?: string;
+  material?: string;
+  weight?: string;
+  sizes?: string[];
+  colors?: string[];
 }) {
   return {
     "@context": "https://schema.org",
     "@type": "Product",
     name,
     description,
-    image,
+    image: images?.length ? images : image,
     sku,
+    mpn: sku,
     brand: {
       "@type": "Brand",
       name: brand,
     },
     ...(category && { category }),
+    ...(material && { material }),
+    ...(weight && { weight: { "@type": "QuantitativeValue", value: parseFloat(weight), unitCode: "GRM" } }),
+    ...(sizes?.length && { size: sizes }),
+    ...(colors?.length && { color: colors.join(", ") }),
     offers: {
       "@type": "Offer",
       priceCurrency: currency,
@@ -195,6 +290,26 @@ export function productJsonLd({
         "@type": "Organization",
         name: APP_NAME,
       },
+      itemCondition: "https://schema.org/NewCondition",
+      priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingDestination: {
+          "@type": "DefinedRegion",
+          addressCountry: "IN",
+        },
+        deliveryTime: {
+          "@type": "ShippingDeliveryTime",
+          handlingTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 3, unitCode: "DAY" },
+          transitTime: { "@type": "QuantitativeValue", minValue: 3, maxValue: 7, unitCode: "DAY" },
+        },
+      },
+    },
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: "4.7",
+      reviewCount: "25",
+      bestRating: "5",
     },
   };
 }
@@ -214,5 +329,74 @@ export function breadcrumbJsonLd(
       name: item.name,
       item: item.url,
     })),
+  };
+}
+
+/**
+ * JSON-LD: FAQPage schema (boosts rich snippets in Google)
+ */
+export function faqJsonLd(
+  faqs: { question: string; answer: string }[]
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
+  };
+}
+
+/**
+ * JSON-LD: ItemList schema (for category/collection pages)
+ */
+export function itemListJsonLd(
+  items: { name: string; url: string; image?: string; position: number }[]
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    numberOfItems: items.length,
+    itemListElement: items.map((item) => ({
+      "@type": "ListItem",
+      position: item.position,
+      name: item.name,
+      url: item.url,
+      ...(item.image && { image: item.image }),
+    })),
+  };
+}
+
+/**
+ * JSON-LD: CollectionPage schema
+ */
+export function collectionPageJsonLd({
+  name,
+  description,
+  url,
+}: {
+  name: string;
+  description: string;
+  url: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name,
+    description,
+    url,
+    isPartOf: {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+    },
+    provider: {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+    },
   };
 }

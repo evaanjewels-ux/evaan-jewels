@@ -5,17 +5,30 @@ import dbConnect from "@/lib/db";
 import Category from "@/models/Category";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { JsonLd } from "@/components/shared/JsonLd";
-import { createMetadata, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
+import { createMetadata, breadcrumbJsonLd, collectionPageJsonLd, itemListJsonLd, SITE_URL } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export const metadata = createMetadata({
-  title: "All Categories",
+  title: "All Jewelry Categories — Gold, Diamond & Gemstone Collections",
   description:
-    "Browse our complete jewelry collection by category — gold rings, necklaces, bangles, earrings, diamonds, and more at Evaan Jewels.",
+    "Browse our complete jewelry collection by category — gold rings, necklaces, bangles, earrings, diamonds, bracelets, and more. BIS hallmarked, handcrafted in Delhi.",
   path: "/categories",
-  keywords: ["jewelry categories", "gold rings", "necklaces", "bangles", "earrings", "diamond jewelry"],
+  keywords: [
+    "jewelry categories",
+    "gold rings",
+    "gold necklaces",
+    "gold bangles",
+    "gold earrings",
+    "diamond jewelry",
+    "bracelets",
+    "mangalsutra",
+    "pendant sets",
+    "hallmark gold jewelry",
+    "buy gold jewelry online",
+    "jewelry shop delhi",
+  ],
 });
 
 async function getCategories(retries = 2) {
@@ -47,6 +60,31 @@ export default async function CategoriesPage() {
           { name: "Categories", url: `${SITE_URL}/categories` },
         ])}
       />
+      <JsonLd
+        data={collectionPageJsonLd({
+          name: "All Jewelry Categories",
+          description:
+            "Browse our complete jewelry collection by category — gold rings, necklaces, bangles, earrings, diamonds, and more.",
+          url: `${SITE_URL}/categories`,
+        })}
+      />
+      {categories.length > 0 && (
+        <JsonLd
+          data={itemListJsonLd(
+            categories.map(
+              (
+                cat: { name: string; slug: string; image: string },
+                i: number
+              ) => ({
+                name: cat.name,
+                url: `${SITE_URL}/categories/${cat.slug}`,
+                image: cat.image,
+                position: i + 1,
+              })
+            )
+          )}
+        />
+      )}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-10">

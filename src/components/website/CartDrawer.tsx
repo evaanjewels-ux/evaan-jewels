@@ -77,7 +77,7 @@ export function CartDrawer() {
                 <ul className="space-y-4">
                   {items.map((item) => (
                     <li
-                      key={item.productId}
+                      key={item.cartItemId}
                       className="flex gap-4 rounded-xl border border-charcoal-100 p-3"
                     >
                       <Link
@@ -105,8 +105,20 @@ export function CartDrawer() {
                           <p className="text-xs text-charcoal-400">
                             {item.category}
                           </p>
-                        )}
-                        <p className="mt-1 font-mono text-sm font-semibold text-gold-700">
+                        )}                        {(item.selectedSize || item.selectedColor) && (
+                          <div className="mt-0.5 flex flex-wrap gap-1.5">
+                            {item.selectedSize && (
+                              <span className="rounded-md bg-gold-50 border border-gold-200 px-1.5 py-0.5 text-xs text-gold-700 font-medium">
+                                Size: {item.selectedSize}
+                              </span>
+                            )}
+                            {item.selectedColor && (
+                              <span className="rounded-md bg-gold-50 border border-gold-200 px-1.5 py-0.5 text-xs text-gold-700 font-medium">
+                                Color: {item.selectedColor}
+                              </span>
+                            )}
+                          </div>
+                        )}                        <p className="mt-1 font-mono text-sm font-semibold text-gold-700">
                           {formatCurrency(item.totalPrice)}
                         </p>
                         <div className="mt-auto flex items-center justify-between pt-2">
@@ -114,7 +126,7 @@ export function CartDrawer() {
                             <button
                               onClick={() =>
                                 updateQuantity(
-                                  item.productId,
+                                  item.cartItemId,
                                   item.quantity - 1
                                 )
                               }
@@ -128,7 +140,7 @@ export function CartDrawer() {
                             <button
                               onClick={() =>
                                 updateQuantity(
-                                  item.productId,
+                                  item.cartItemId,
                                   item.quantity + 1
                                 )
                               }
@@ -138,7 +150,7 @@ export function CartDrawer() {
                             </button>
                           </div>
                           <button
-                            onClick={() => removeItem(item.productId)}
+                            onClick={() => removeItem(item.cartItemId)}
                             className="flex h-7 w-7 items-center justify-center rounded-md text-charcoal-300 transition-colors hover:bg-red-50 hover:text-red-500"
                           >
                             <Trash2 className="h-3.5 w-3.5" />

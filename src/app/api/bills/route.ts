@@ -136,13 +136,15 @@ export async function POST(request: NextRequest) {
             .populate("gemstoneComposition.gemstone", "name")
             .lean();
           if (!p) throw new Error(`Product ${item.product} not found`);
-          return { product: p, quantity: item.quantity };
+          return { product: p, quantity: item.quantity, selectedSize: item.selectedSize, selectedColor: item.selectedColor };
         })
       );
-      resolvedItems = products.map(({ product: p, quantity }) => ({
+      resolvedItems = products.map(({ product: p, quantity, selectedSize, selectedColor }) => ({
         product: p._id,
         quantity,
-        productSnapshot: buildSnapshot(p),
+        selectedSize,
+        selectedColor,
+        productSnapshot: { ...buildSnapshot(p), selectedSize, selectedColor },
       }));
     } else if (validatedData.product) {
       // Legacy single-product

@@ -59,11 +59,16 @@ interface ProductSearchResult {
   totalPrice: number;
   thumbnailImage: string;
   category?: { name: string } | null;
+  sizes?: string[];
+  colors?: string[];
 }
 
 interface BillItem {
+  lineId: string; // unique per line (allows same product with different sizes)
   product: ProductSearchResult;
   quantity: number;
+  selectedSize?: string;
+  selectedColor?: string;
 }
 
 interface ExistingCustomer {
@@ -296,39 +301,53 @@ export default function BillForm() {
     setLinkedCustomer(null);
   };
 
-  /** Add product to cart (or increment qty if already there) */
+  /** Add product to cart — always creates new line if product has size/color variants */
   const addProduct = (product: ProductSearchResult) => {
+    const hasVariants = (product.sizes?.length ?? 0) > 0 || (product.colors?.length ?? 0) > 0;
     setBillItems((prev) => {
-      const existing = prev.find((i) => i.product._id === product._id);
-      if (existing) {
-        return prev.map((i) =>
-          i.product._id === product._id
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
-        );
+      if (!hasVariants) {
+        const existing = prev.find((i) => i.product._id === product._id);
+        if (existing) {
+          return prev.map((i) =>
+            i.product._id === product._id
+              ? { ...i, quantity: i.quantity + 1 }
+              : i
+          );
+        }
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { lineId: `${product._id}-${Date.now()}`, product, quantity: 1 }];
     });
     setProductSearch("");
     setProductResults([]);
   };
 
   /** Remove item from cart */
-  const removeItem = (productId: string) => {
-    setBillItems((prev) => prev.filter((i) => i.product._id !== productId));
+  const removeItem = (lineId: string) => {
+    setBillItems((prev) => prev.filter((i) => i.lineId !== lineId));
     setValue("discountValue", 0);
   };
 
   /** Change quantity (+1 or -1; removes item when qty reaches 0) */
-  const updateQuantity = (productId: string, delta: number) => {
+  const updateQuantity = (lineId: string, delta: number) => {
     setBillItems((prev) =>
       prev
         .map((i) =>
-          i.product._id === productId
+          i.lineId === lineId
             ? { ...i, quantity: Math.max(0, i.quantity + delta) }
             : i
         )
         .filter((i) => i.quantity > 0)
+    );
+  };
+
+  /** Update selectedSize or selectedColor for a bill item */
+  const updateItemOption = (
+    lineId: string,
+    key: "selectedSize" | "selectedColor",
+    value: string
+  ) => {
+    setBillItems((prev) =>
+      prev.map((i) => (i.lineId === lineId ? { ...i, [key]: value } : i))
     );
   };
 
@@ -351,6 +370,8 @@ export default function BillForm() {
         items: billItems.map((item) => ({
           product: item.product._id,
           quantity: item.quantity,
+          selectedSize: item.selectedSize,
+          selectedColor: item.selectedColor,
         })),
         customer: {
           name: values.customerName,
@@ -586,7 +607,7 @@ export default function BillForm() {
                     <div className="space-y-2">
                       {billItems.map((item, index) => (
                         <motion.div
-                          key={item.product._id}
+                          key={item.lineId}
                           layout
                           initial={{ opacity: 0, y: -8 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -609,8 +630,51 @@ export default function BillForm() {
                             <p className="text-xs font-mono text-charcoal-400">
                               {item.product.productCode}
                             </p>
+
+                            {/* Inline size selector */}
+                            {(item.product.sizes?.length ?? 0) > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                <span className="text-xs text-charcoal-400 self-center">Size:</span>
+                                {item.product.sizes!.map((s) => (
+                                  <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() => updateItemOption(item.lineId, "selectedSize", s)}
+                                    className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                                      item.selectedSize === s
+                                        ? "bg-charcoal-700 text-white border-charcoal-700"
+                                        : "border-charcoal-200 text-charcoal-500 hover:border-charcoal-400"
+                                    }`}
+                                  >
+                                    {s}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Inline color selector */}
+                            {(item.product.colors?.length ?? 0) > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                <span className="text-xs text-charcoal-400 self-center">Color:</span>
+                                {item.product.colors!.map((c) => (
+                                  <button
+                                    key={c}
+                                    type="button"
+                                    onClick={() => updateItemOption(item.lineId, "selectedColor", c)}
+                                    className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                                      item.selectedColor === c
+                                        ? "bg-charcoal-700 text-white border-charcoal-700"
+                                        : "border-charcoal-200 text-charcoal-500 hover:border-charcoal-400"
+                                    }`}
+                                  >
+                                    {c}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
                             <p className="text-xs text-charcoal-500 mt-0.5">
-                              {formatCurrency(item.product.totalPrice)} Ã—{" "}
+                              {formatCurrency(item.product.totalPrice)} ×{" "}
                               {item.quantity} ={" "}
                               <span className="font-semibold text-charcoal-700">
                                 {formatCurrency(
@@ -624,9 +688,7 @@ export default function BillForm() {
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
-                              onClick={() =>
-                                updateQuantity(item.product._id, -1)
-                              }
+                              onClick={() => updateQuantity(item.lineId, -1)}
                               className="w-7 h-7 rounded-lg border border-charcoal-200 flex items-center justify-center hover:bg-charcoal-100 transition-colors"
                             >
                               <Minus size={12} />
@@ -636,9 +698,7 @@ export default function BillForm() {
                             </span>
                             <button
                               type="button"
-                              onClick={() =>
-                                updateQuantity(item.product._id, 1)
-                              }
+                              onClick={() => updateQuantity(item.lineId, 1)}
                               className="w-7 h-7 rounded-lg border border-charcoal-200 flex items-center justify-center hover:bg-charcoal-100 transition-colors"
                             >
                               <Plus size={12} />
@@ -648,7 +708,7 @@ export default function BillForm() {
                           {/* Remove */}
                           <button
                             type="button"
-                            onClick={() => removeItem(item.product._id)}
+                            onClick={() => removeItem(item.lineId)}
                             className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors ml-1 shrink-0"
                           >
                             <Trash2 size={14} />

@@ -44,7 +44,33 @@ export const metadata: Metadata = {
     "diamond rings",
     "wedding jewelry",
     "bridal jewelry",
+    "gold bangles",
+    "gold earrings",
+    "gold pendants",
+    "diamond necklace",
+    "solitaire ring",
+    "gold chain",
+    "mangalsutra",
+    "delhi jewelry shop",
+    "uttam nagar jewellers",
+    "buy gold online",
+    "gold price today",
+    "jewelry shop near me",
   ],
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    other: [
+      { rel: "mask-icon", url: "/logo.png", color: "#D4A017" },
+    ],
+  },
+  manifest: "/site.webmanifest",
   openGraph: {
     type: "website",
     locale: "en_IN",
@@ -71,6 +97,14 @@ export const metadata: Metadata = {
       "max-image-preview": "large",
       "max-snippet": -1,
     },
+  },
+  verification: {
+    // Add your Google Search Console verification code here
+    // google: "your-google-verification-code",
+  },
+  other: {
+    "msapplication-TileColor": "#D4A017",
+    "theme-color": "#D4A017",
   },
 };
 

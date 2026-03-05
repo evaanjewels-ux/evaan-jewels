@@ -76,6 +76,14 @@ export function StepComposition({
   const [metals, setMetals] = useState<MetalApiData[]>([]);
   const [gemstones, setGemstones] = useState<GemstoneApiData[]>([]);
 
+  // Raw string state for weight inputs to allow typing 0.007 etc.
+  const [metalWeightRaw, setMetalWeightRaw] = useState<string[]>(() =>
+    data.metals.map((m) => (m.weightInGrams > 0 ? String(m.weightInGrams) : ""))
+  );
+  const [gemstoneWeightRaw, setGemstoneWeightRaw] = useState<string[]>(() =>
+    data.gemstones.map((g) => (g.weightInCarats > 0 ? String(g.weightInCarats) : ""))
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -108,6 +116,7 @@ export function StepComposition({
 
   // Metal handlers
   const addMetal = () => {
+    setMetalWeightRaw((prev) => [...prev, ""]);
     onChange({
       ...data,
       metals: [
@@ -132,6 +141,7 @@ export function StepComposition({
   };
 
   const removeMetal = (index: number) => {
+    setMetalWeightRaw((prev) => prev.filter((_, i) => i !== index));
     onChange({ ...data, metals: data.metals.filter((_, i) => i !== index) });
   };
 
@@ -158,6 +168,7 @@ export function StepComposition({
 
   // Gemstone handlers
   const addGemstone = () => {
+    setGemstoneWeightRaw((prev) => [...prev, ""]);
     onChange({
       ...data,
       gemstones: [
@@ -183,6 +194,7 @@ export function StepComposition({
   };
 
   const removeGemstone = (index: number) => {
+    setGemstoneWeightRaw((prev) => prev.filter((_, i) => i !== index));
     onChange({
       ...data,
       gemstones: data.gemstones.filter((_, i) => i !== index),
@@ -298,13 +310,20 @@ export function StepComposition({
                     <Input
                       label="Weight (grams)"
                       type="number"
-                      step="0.01"
-                      value={entry.weightInGrams || ""}
-                      onChange={(e) =>
-                        updateMetal(index, {
-                          weightInGrams: parseFloat(e.target.value) || 0,
-                        })
-                      }
+                      step="0.001"
+                      value={metalWeightRaw[index] ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setMetalWeightRaw((prev) => {
+                          const a = [...prev];
+                          a[index] = raw;
+                          return a;
+                        });
+                        const num = parseFloat(raw);
+                        if (!isNaN(num)) {
+                          updateMetal(index, { weightInGrams: num });
+                        }
+                      }}
                     />
 
                     <div>
@@ -419,13 +438,21 @@ export function StepComposition({
                     <Input
                       label="Weight (carats)"
                       type="number"
-                      step="0.01"
-                      value={entry.weightInCarats || ""}
-                      onChange={(e) =>
-                        updateGemstone(index, {
-                          weightInCarats: parseFloat(e.target.value) || 0,
-                        })
-                      }
+                      step="0.001"
+                      min="0"
+                      value={gemstoneWeightRaw[index] ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setGemstoneWeightRaw((prev) => {
+                          const a = [...prev];
+                          a[index] = raw;
+                          return a;
+                        });
+                        const num = parseFloat(raw);
+                        if (!isNaN(num)) {
+                          updateGemstone(index, { weightInCarats: num });
+                        }
+                      }}
                     />
 
                     <Input

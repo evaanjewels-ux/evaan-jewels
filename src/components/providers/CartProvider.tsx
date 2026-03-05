@@ -20,8 +20,8 @@ interface CartState {
 
 type CartAction =
   | { type: "ADD_ITEM"; payload: ICartItem }
-  | { type: "REMOVE_ITEM"; payload: string }
-  | { type: "UPDATE_QUANTITY"; payload: { productId: string; quantity: number } }
+  | { type: "REMOVE_ITEM"; payload: string }  // cartItemId
+  | { type: "UPDATE_QUANTITY"; payload: { cartItemId: string; quantity: number } }
   | { type: "CLEAR_CART" }
   | { type: "TOGGLE_CART" }
   | { type: "SET_CART_OPEN"; payload: boolean }
@@ -31,13 +31,13 @@ function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case "ADD_ITEM": {
       const existing = state.items.find(
-        (i) => i.productId === action.payload.productId
+        (i) => i.cartItemId === action.payload.cartItemId
       );
       if (existing) {
         return {
           ...state,
           items: state.items.map((i) =>
-            i.productId === action.payload.productId
+            i.cartItemId === action.payload.cartItemId
               ? { ...i, quantity: i.quantity + action.payload.quantity }
               : i
           ),
@@ -48,21 +48,21 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     case "REMOVE_ITEM":
       return {
         ...state,
-        items: state.items.filter((i) => i.productId !== action.payload),
+        items: state.items.filter((i) => i.cartItemId !== action.payload),
       };
     case "UPDATE_QUANTITY":
       if (action.payload.quantity <= 0) {
         return {
           ...state,
           items: state.items.filter(
-            (i) => i.productId !== action.payload.productId
+            (i) => i.cartItemId !== action.payload.cartItemId
           ),
         };
       }
       return {
         ...state,
         items: state.items.map((i) =>
-          i.productId === action.payload.productId
+          i.cartItemId === action.payload.cartItemId
             ? { ...i, quantity: action.payload.quantity }
             : i
         ),
@@ -74,7 +74,14 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     case "SET_CART_OPEN":
       return { ...state, isOpen: action.payload };
     case "LOAD_CART":
-      return { ...state, items: action.payload };
+      // Backfill cartItemId for legacy items loaded from localStorage
+      return {
+        ...state,
+        items: action.payload.map((item) => ({
+          ...item,
+          cartItemId: item.cartItemId ?? `${item.productId}||`,
+        })),
+      };
     default:
       return state;
   }
@@ -88,8 +95,8 @@ interface CartContextType {
   itemCount: number;
   subtotal: number;
   addItem: (item: ICartItem) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  removeItem: (cartItemId: string) => void;
+  updateQuantity: (cartItemId: string, quantity: number) => void;
   clearCart: () => void;
   toggleCart: () => void;
   setCartOpen: (open: boolean) => void;
@@ -134,14 +141,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     toast.success(`${item.name} added to cart`);
   }, []);
 
-  const removeItem = useCallback((productId: string) => {
-    dispatch({ type: "REMOVE_ITEM", payload: productId });
+  const removeItem = useCallback((cartItemId: string) => {
+    dispatch({ type: "REMOVE_ITEM", payload: cartItemId });
     toast.info("Item removed from cart");
   }, []);
 
   const updateQuantity = useCallback(
-    (productId: string, quantity: number) => {
-      dispatch({ type: "UPDATE_QUANTITY", payload: { productId, quantity } });
+    (cartItemId: string, quantity: number) => {
+      dispatch({ type: "UPDATE_QUANTITY", payload: { cartItemId, quantity } });
     },
     []
   );
