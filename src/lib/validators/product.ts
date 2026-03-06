@@ -44,6 +44,11 @@ const otherChargeSchema = z.object({
 // ─── Shared loose image schema (no URL validation — we trust stored R2 URLs) ──
 const looseImageArraySchema = z.array(z.string().min(1)).max(8).optional();
 
+const colorImageSchema = z.object({
+  color: z.string().min(1),
+  images: z.array(z.string()).default([]),
+});
+
 export const productCreateSchema = z.object({
   name: z.string().min(1, "Product name is required").max(200).trim(),
   productCode: z.string().min(1).optional(),
@@ -66,6 +71,8 @@ export const productCreateSchema = z.object({
 
   images: z.array(z.string().url()).min(1, "At least one product image is required").max(8),
   thumbnailImage: z.string().optional().default(""),
+
+  colorImages: z.array(colorImageSchema).optional().default([]),
 
   isNewArrival: z.boolean().optional().default(false),
   isOutOfStock: z.boolean().optional().default(false),

@@ -6,9 +6,16 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Card } from "@/components/ui/Card";
 import { MultiImageUpload } from "@/components/ui/ImageUpload";
 import { MAX_PRODUCT_IMAGES } from "@/constants";
+import { Palette } from "lucide-react";
+
+export interface ColorImageEntry {
+  color: string;
+  images: string[];
+}
 
 export interface ImagesData {
   images: string[];
+  colorImages: ColorImageEntry[];
   isNewArrival: boolean;
   isOutOfStock: boolean;
   isFeatured: boolean;
@@ -20,21 +27,37 @@ export interface ImagesData {
 interface StepImagesProps {
   data: ImagesData;
   onChange: (data: ImagesData) => void;
+  colors: string[];
   onNext: () => void;
   onBack: () => void;
 }
 
-export function StepImages({ data, onChange, onNext, onBack }: StepImagesProps) {
+export function StepImages({ data, onChange, colors, onNext, onBack }: StepImagesProps) {
+  const hasColors = colors.length > 0;
+
+  // Ensure colorImages entries exist for each color
+  const getColorImages = (color: string): string[] => {
+    return data.colorImages.find((ci) => ci.color === color)?.images || [];
+  };
+
+  const updateColorImages = (color: string, images: string[]) => {
+    const existing = data.colorImages.filter((ci) => ci.color !== color);
+    onChange({
+      ...data,
+      colorImages: [...existing, { color, images }],
+    });
+  };
+
   return (
     <div className="space-y-6">
-      {/* Images */}
+      {/* Main Product Images */}
       <Card>
         <div className="p-5 md:p-6">
           <h2 className="text-lg font-semibold text-charcoal-700 mb-4">
             Product Images
           </h2>
           <p className="text-sm text-charcoal-400 mb-4">
-            Upload up to {MAX_PRODUCT_IMAGES} images. The first image will be
+            Upload up to {MAX_PRODUCT_IMAGES} general images. The first image will be
             used as thumbnail.
           </p>
           <MultiImageUpload
@@ -45,6 +68,47 @@ export function StepImages({ data, onChange, onNext, onBack }: StepImagesProps) 
           />
         </div>
       </Card>
+
+      {/* Per-Color Images */}
+      {hasColors && (
+        <Card>
+          <div className="p-5 md:p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Palette size={20} className="text-gold-500" />
+              <h2 className="text-lg font-semibold text-charcoal-700">
+                Color-Specific Images
+              </h2>
+            </div>
+            <p className="text-sm text-charcoal-400 mb-6">
+              Upload images for each color variant. When a customer selects a color,
+              these images will be shown in the gallery.
+            </p>
+            <div className="space-y-6">
+              {colors.map((color) => (
+                <div
+                  key={color}
+                  className="rounded-xl border border-charcoal-100 bg-charcoal-50/30 p-4"
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="inline-flex items-center rounded-full bg-gold-100 px-3 py-1 text-sm font-medium text-gold-800">
+                      {color}
+                    </span>
+                    <span className="text-xs text-charcoal-400">
+                      {getColorImages(color).length} image(s)
+                    </span>
+                  </div>
+                  <MultiImageUpload
+                    value={getColorImages(color)}
+                    onChange={(images) => updateColorImages(color, images)}
+                    folder="products/colors"
+                    maxImages={MAX_PRODUCT_IMAGES}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Flags */}
       <Card>

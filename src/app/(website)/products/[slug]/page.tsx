@@ -3,12 +3,13 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import dbConnect from "@/lib/db";
 import Product from "@/models/Product";
+import Metal from "@/models/Metal";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { Badge } from "@/components/ui/Badge";
-import { ProductGallery } from "@/components/website/ProductGallery";
-import { PriceBreakdown } from "@/components/website/PriceBreakdown";
+import { ProductDetailClient } from "@/components/website/ProductDetailClient";
 import { ProductCard } from "@/components/website/ProductCard";
-import { ProductActions } from "@/components/website/ProductActions";
+import { TrackProductView } from "@/components/website/TrackProductView";
+import { RecentlyViewed } from "@/components/website/RecentlyViewed";
 import { JsonLd } from "@/components/shared/JsonLd";
 import { formatCurrency, capitalize } from "@/lib/utils";
 import { productJsonLd, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
@@ -109,9 +110,25 @@ async function getProductData(slug: string, retries = 2) {
         .limit(4)
         .lean();
 
+      // Fetch metals used in this product so the client can offer variant-switching
+      const metalIds = [
+        ...new Set(
+          (product.metalComposition || []).map(
+            (mc: { metal: unknown }) => String(mc.metal)
+          )
+        ),
+      ];
+      const metals =
+        metalIds.length > 0
+          ? await Metal.find({ _id: { $in: metalIds }, isActive: true })
+              .select("name variants")
+              .lean()
+          : [];
+
       return {
         product: JSON.parse(JSON.stringify(product)),
         relatedProducts: JSON.parse(JSON.stringify(relatedProducts)),
+        availableMetals: JSON.parse(JSON.stringify(metals)),
       };
     } catch (err) {
       console.error(`getProductData attempt ${attempt + 1} failed:`, err);
@@ -128,7 +145,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   if (!data) notFound();
 
-  const { product, relatedProducts } = data;
+  const { product, relatedProducts, availableMetals } = data;
   const category = product.category as { name: string; slug: string } | null;
 
   const whatsappMessage = encodeURIComponent(
@@ -185,121 +202,128 @@ export default async function ProductPage({ params }: ProductPageProps) {
           ]}
         />
 
-        {/* Product Section */}
-        <div className="mt-6 grid gap-8 lg:grid-cols-2 lg:gap-12">
-          {/* Gallery */}
-          <ProductGallery
-            images={product.images || [product.thumbnailImage]}
-            productName={product.name}
-          />
-
-          {/* Details */}
-          <div className="flex flex-col">
-            {/* Badges */}
-            <div className="flex flex-wrap gap-2">
-              {product.isNewArrival && (
-                <Badge variant="rose">New Arrival</Badge>
-              )}
-              {product.isFeatured && (
-                <Badge variant="gold">Featured</Badge>
-              )}
-              {product.isOutOfStock && (
-                <Badge variant="error">Out of Stock</Badge>
-              )}
-            </div>
-
-            {/* Category & Code */}
-            {category && (
-              <Link
-                href={`/categories/${category.slug}`}
-                className="mt-3 text-xs font-medium uppercase tracking-wider text-gold-600 hover:text-gold-700"
-              >
-                {category.name}
-              </Link>
-            )}
-
-            {/* Name */}
-            <h1 className="mt-2 font-heading text-2xl font-bold text-charcoal-700 sm:text-3xl lg:text-4xl">
-              {product.name}
-            </h1>
-
-            {/* Product Code */}
-            <p className="mt-1 font-mono text-xs text-charcoal-400">
-              {product.productCode}
-            </p>
-
-            {/* Price */}
-            <div className="mt-4">
-              <PriceBreakdown product={product} />
-            </div>
-
-            {/* Details Grid */}
-            <div className="mt-6 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-              {product.gender && (
-                <div className="rounded-lg bg-charcoal-50 p-3">
-                  <p className="text-xs text-charcoal-400">Gender</p>
-                  <p className="mt-0.5 font-medium text-charcoal-700">
-                    {capitalize(product.gender)}
-                  </p>
-                </div>
-              )}
-              {product.grossWeight > 0 && (
-                <div className="rounded-lg bg-charcoal-50 p-3">
-                  <p className="text-xs text-charcoal-400">Gross Weight</p>
-                  <p className="mt-0.5 font-medium text-charcoal-700">
-                    {product.grossWeight}g
-                  </p>
-                </div>
-              )}
-              {product.netWeight > 0 && (
-                <div className="rounded-lg bg-charcoal-50 p-3">
-                  <p className="text-xs text-charcoal-400">Net Weight</p>
-                  <p className="mt-0.5 font-medium text-charcoal-700">
-                    {product.netWeight}g
-                  </p>
-                </div>
-              )}
-              {product.size && (
-                <div className="rounded-lg bg-charcoal-50 p-3">
-                  <p className="text-xs text-charcoal-400">Size</p>
-                  <p className="mt-0.5 font-medium text-charcoal-700">
-                    {product.size}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Description */}
-            {product.description && (
-              <div className="mt-6">
-                <h3 className="text-sm font-semibold text-charcoal-600">
-                  Description
-                </h3>
-                <p className="mt-2 max-w-prose text-sm leading-relaxed text-charcoal-400">
-                  {product.description}
-                </p>
-              </div>
-            )}
-
-            {/* Available Sizes & Colors + CTA (interactive client component) */}
-            <ProductActions
-              product={{
-                _id: product._id,
-                name: product.name,
-                slug: product.slug,
-                productCode: product.productCode,
-                thumbnailImage: product.thumbnailImage,
-                totalPrice: product.totalPrice,
-                isOutOfStock: product.isOutOfStock,
-                category: category ? { name: category.name } : undefined,
-                metalComposition: product.metalComposition,
-                sizes: product.sizes,
-                colors: product.colors,
-              }}
-              whatsappMessage={whatsappMessage}
-            />
-          </div>
+        {/* Badges */}
+        <div className="mt-6 flex flex-wrap gap-2">
+          {product.isNewArrival && (
+            <Badge variant="rose">New Arrival</Badge>
+          )}
+          {product.isFeatured && (
+            <Badge variant="gold">Featured</Badge>
+          )}
+          {product.isOutOfStock && (
+            <Badge variant="error">Out of Stock</Badge>
+          )}
         </div>
+
+        {/* Category & Code */}
+        {category && (
+          <Link
+            href={`/categories/${category.slug}`}
+            className="mt-3 inline-block text-xs font-medium uppercase tracking-wider text-gold-600 hover:text-gold-700"
+          >
+            {category.name}
+          </Link>
+        )}
+
+        {/* Name */}
+        <h1 className="mt-2 font-heading text-2xl font-bold text-charcoal-700 sm:text-3xl lg:text-4xl">
+          {product.name}
+        </h1>
+
+        {/* Product Code */}
+        <p className="mt-1 font-mono text-xs text-charcoal-400">
+          {product.productCode}
+        </p>
+
+        {/* Product Section — Gallery + Actions + Price (client component) */}
+        <div className="mt-6">
+          <ProductDetailClient
+            product={{
+              _id: product._id,
+              name: product.name,
+              slug: product.slug,
+              productCode: product.productCode,
+              description: product.description,
+              gender: product.gender,
+              images: product.images || [],
+              thumbnailImage: product.thumbnailImage,
+              colorImages: product.colorImages || [],
+              totalPrice: product.totalPrice,
+              isOutOfStock: product.isOutOfStock,
+              isNewArrival: product.isNewArrival,
+              isFeatured: product.isFeatured,
+              category: category ? { name: category.name, slug: category.slug } : null,
+              metalComposition: product.metalComposition || [],
+              gemstoneComposition: product.gemstoneComposition || [],
+              makingCharges: product.makingCharges,
+              wastageCharges: product.wastageCharges,
+              gstPercentage: product.gstPercentage,
+              otherCharges: product.otherCharges || [],
+              metalTotal: product.metalTotal,
+              gemstoneTotal: product.gemstoneTotal,
+              makingChargeAmount: product.makingChargeAmount,
+              wastageChargeAmount: product.wastageChargeAmount,
+              otherChargesTotal: product.otherChargesTotal,
+              subtotal: product.subtotal,
+              gstAmount: product.gstAmount,
+              grossWeight: product.grossWeight,
+              netWeight: product.netWeight,
+              sizes: product.sizes || [],
+              colors: product.colors || [],
+              size: product.size,
+            }}
+            availableMetals={availableMetals}
+            whatsappMessage={whatsappMessage}
+          />
+        </div>
+
+        {/* Details Grid */}
+        <div className="mt-8 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-4">
+          {product.gender && (
+            <div className="rounded-lg bg-charcoal-50 p-3">
+              <p className="text-xs text-charcoal-400">Gender</p>
+              <p className="mt-0.5 font-medium text-charcoal-700">
+                {capitalize(product.gender)}
+              </p>
+            </div>
+          )}
+          {product.grossWeight > 0 && (
+            <div className="rounded-lg bg-charcoal-50 p-3">
+              <p className="text-xs text-charcoal-400">Gross Weight</p>
+              <p className="mt-0.5 font-medium text-charcoal-700">
+                {product.grossWeight}g
+              </p>
+            </div>
+          )}
+          {product.netWeight > 0 && (
+            <div className="rounded-lg bg-charcoal-50 p-3">
+              <p className="text-xs text-charcoal-400">Net Weight</p>
+              <p className="mt-0.5 font-medium text-charcoal-700">
+                {product.netWeight}g
+              </p>
+            </div>
+          )}
+          {product.size && (
+            <div className="rounded-lg bg-charcoal-50 p-3">
+              <p className="text-xs text-charcoal-400">Size</p>
+              <p className="mt-0.5 font-medium text-charcoal-700">
+                {product.size}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Description */}
+        {product.description && (
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-charcoal-600">
+              Description
+            </h3>
+            <p className="mt-2 max-w-prose text-sm leading-relaxed text-charcoal-400">
+              {product.description}
+            </p>
+          </div>
+        )}
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (
@@ -330,6 +354,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
           </section>
         )}
+
+        {/* Recently Viewed */}
+        <RecentlyViewed excludeProductId={product._id} />
+
+        {/* Track this product view */}
+        <TrackProductView
+          product={{
+            productId: product._id,
+            name: product.name,
+            slug: product.slug,
+            thumbnailImage: product.thumbnailImage,
+            totalPrice: product.totalPrice,
+            category: category?.name,
+          }}
+        />
       </div>
     </div>
   );

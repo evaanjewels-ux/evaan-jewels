@@ -115,6 +115,14 @@ const OtherChargeSchema = new Schema(
   { _id: false }
 );
 
+const ColorImageSchema = new Schema(
+  {
+    color: { type: String, required: true },
+    images: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
 const ProductSchema = new Schema<IProduct>(
   {
     name: {
@@ -181,6 +189,9 @@ const ProductSchema = new Schema<IProduct>(
       },
     },
     thumbnailImage: { type: String, default: "" },
+
+    // Color-specific images
+    colorImages: { type: [ColorImageSchema], default: [] },
 
     // Flags
     isNewArrival: { type: Boolean, default: false },

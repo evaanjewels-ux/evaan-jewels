@@ -4,6 +4,8 @@ import { MobileBottomNav } from "@/components/website/MobileBottomNav";
 import { CartDrawer } from "@/components/website/CartDrawer";
 import { LanguageProvider } from "@/components/providers/LanguageProvider";
 import { CartProvider } from "@/components/providers/CartProvider";
+import { WishlistProvider } from "@/components/providers/WishlistProvider";
+import { RecentlyViewedProvider } from "@/components/providers/RecentlyViewedProvider";
 import { Toaster } from "sonner";
 
 export default function WebsiteLayout({
@@ -14,6 +16,8 @@ export default function WebsiteLayout({
   return (
     <LanguageProvider>
       <CartProvider>
+        <WishlistProvider>
+        <RecentlyViewedProvider>
         <div className="flex min-h-screen flex-col">
           <Header />
           <main className="flex-1">{children}</main>
@@ -29,6 +33,8 @@ export default function WebsiteLayout({
             }}
           />
         </div>
+        </RecentlyViewedProvider>
+        </WishlistProvider>
       </CartProvider>
     </LanguageProvider>
   );

@@ -10,7 +10,7 @@ import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { StepBasicInfo, type BasicInfoData } from "./StepBasicInfo";
 import { StepComposition, type CompositionData, type MetalEntry, type GemstoneEntry } from "./StepComposition";
 import { StepCharges, type ChargesData } from "./StepCharges";
-import { StepImages, type ImagesData } from "./StepImages";
+import { StepImages, type ImagesData, type ColorImageEntry } from "./StepImages";
 import { StepReview } from "./StepReview";
 import { calculateProductPrice } from "@/lib/pricing";
 import { generateProductCode } from "@/lib/utils";
@@ -215,6 +215,10 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         metaTitle: formData.images.metaTitle || undefined,
         metaDescription: formData.images.metaDescription || undefined,
 
+        colorImages: formData.images.colorImages.filter(
+          (ci: ColorImageEntry) => ci.images.length > 0
+        ),
+
         sizes: formData.basic.sizes || [],
         colors: formData.basic.colors || [],
 
@@ -350,6 +354,7 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
             <StepImages
               data={formData.images}
               onChange={updateImages}
+              colors={formData.basic.colors}
               onNext={goNext}
               onBack={goBack}
             />
@@ -393,6 +398,7 @@ function getDefaultFormData(): ProductFormData {
     },
     images: {
       images: [],
+      colorImages: [],
       isNewArrival: false,
       isOutOfStock: false,
       isFeatured: false,
@@ -497,6 +503,10 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
     },
     images: {
       images: (data.images as string[]) || [],
+      colorImages: ((data.colorImages as Array<Record<string, unknown>>) || []).map((ci) => ({
+        color: (ci.color as string) || "",
+        images: (ci.images as string[]) || [],
+      })),
       isNewArrival: (data.isNewArrival as boolean) ?? false,
       isOutOfStock: (data.isOutOfStock as boolean) ?? false,
       isFeatured: (data.isFeatured as boolean) ?? false,

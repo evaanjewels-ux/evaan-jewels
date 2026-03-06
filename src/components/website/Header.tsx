@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Phone, MapPin, Globe } from "lucide-react";
+import { Menu, X, Phone, MapPin, Globe, Heart } from "lucide-react";
+import { useWishlist } from "@/components/providers/WishlistProvider";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/Logo";
 import { CartIcon } from "@/components/website/CartIcon";
@@ -25,6 +26,7 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const { t, toggleLanguage, language } = useLanguage();
+  const { itemCount: wishlistCount } = useWishlist();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -122,8 +124,20 @@ Uttam Nagar, Delhi — 110059 </span>
             })}
           </nav>
 
-          {/* Desktop CTA + Cart + Language Toggle */}
+          {/* Desktop CTA + Cart + Wishlist + Language Toggle */}
           <div className="hidden items-center gap-3 md:flex">
+            <Link
+              href="/wishlist"
+              className="relative flex h-10 w-10 items-center justify-center rounded-lg text-charcoal-500 transition-colors hover:bg-charcoal-50 hover:text-gold-600"
+              aria-label="Wishlist"
+            >
+              <Heart className="h-5 w-5" />
+              {wishlistCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-gold-500 text-[10px] font-bold text-white">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
             <CartIcon />
             <a
               href="https://wa.me/919654148574?text=Hi%20Evaan%20Jewels%2C%20I%27m%20interested%20in%20your%20jewelry%20collection."
@@ -135,8 +149,20 @@ Uttam Nagar, Delhi — 110059 </span>
             </a>
           </div>
 
-          {/* Mobile: Cart + Language Toggle + Menu */}
+          {/* Mobile: Cart + Wishlist + Language Toggle + Menu */}
           <div className="flex items-center gap-2 md:hidden">
+            <Link
+              href="/wishlist"
+              className="relative flex h-9 w-9 items-center justify-center rounded-lg text-charcoal-500 transition-colors hover:bg-charcoal-50"
+              aria-label="Wishlist"
+            >
+              <Heart className="h-4.5 w-4.5" />
+              {wishlistCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-gold-500 text-[9px] font-bold text-white">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
             <CartIcon />
             <button
               onClick={toggleLanguage}

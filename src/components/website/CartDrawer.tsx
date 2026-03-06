@@ -118,6 +118,18 @@ export function CartDrawer() {
                               </span>
                             )}
                           </div>
+                        )}
+                        {item.selectedMetalVariants && item.selectedMetalVariants.length > 0 && (
+                          <div className="mt-0.5 flex flex-wrap gap-1.5">
+                            {item.selectedMetalVariants.map((mv, idx) => (
+                              <span
+                                key={idx}
+                                className="rounded-md bg-charcoal-50 border border-charcoal-200 px-1.5 py-0.5 text-xs text-charcoal-600 font-medium"
+                              >
+                                {mv.variantName}
+                              </span>
+                            ))}
+                          </div>
                         )}                        <p className="mt-1 font-mono text-sm font-semibold text-gold-700">
                           {formatCurrency(item.totalPrice)}
                         </p>

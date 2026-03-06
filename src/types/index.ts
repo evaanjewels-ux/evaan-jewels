@@ -109,6 +109,11 @@ export interface IOtherCharge {
   amount: number;
 }
 
+export interface IColorImage {
+  color: string;
+  images: string[];
+}
+
 export interface IProduct {
   _id: Types.ObjectId;
   name: string;
@@ -137,6 +142,7 @@ export interface IProduct {
 
   images: string[];
   thumbnailImage: string;
+  colorImages: IColorImage[];
 
   isNewArrival: boolean;
   isOutOfStock: boolean;
@@ -257,8 +263,17 @@ export interface ICounter {
 
 // ─── Cart (client-side) ──────────────────────────────
 
+export interface ICartItemMetalVariant {
+  metalId: string;
+  metalName: string;
+  variantId: string;
+  variantName: string;
+  pricePerGram: number;
+  weightInGrams: number;
+}
+
 export interface ICartItem {
-  /** Unique key: productId|selectedSize|selectedColor — allows same product in different sizes as separate items */
+  /** Unique key: productId|selectedSize|selectedColor|metalVariants — allows same product in different variant combos as separate items */
   cartItemId: string;
   productId: string;
   name: string;
@@ -271,6 +286,7 @@ export interface ICartItem {
   metalComposition?: { variantName: string; weightInGrams: number }[];
   selectedSize?: string;
   selectedColor?: string;
+  selectedMetalVariants?: ICartItemMetalVariant[];
 }
 
 // ─── API Response Types ──────────────────────────────
