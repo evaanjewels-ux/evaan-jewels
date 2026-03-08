@@ -1,25 +1,34 @@
 "use client";
 
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Card } from "@/components/ui/Card";
 import { MultiImageUpload } from "@/components/ui/ImageUpload";
 import { MAX_PRODUCT_IMAGES } from "@/constants";
-import { Palette } from "lucide-react";
+import { Palette, Video, Plus, Trash2, Link2, Upload, Loader2 } from "lucide-react";
 
 export interface ColorImageEntry {
   color: string;
   images: string[];
 }
 
+export interface VideoEntry {
+  type: "upload" | "external";
+  url: string;
+  thumbnailUrl?: string;
+}
+
 export interface ImagesData {
   images: string[];
   colorImages: ColorImageEntry[];
+  videos: VideoEntry[];
   isNewArrival: boolean;
   isOutOfStock: boolean;
   isFeatured: boolean;
   isActive: boolean;
+  hallmarkCertified: boolean;
   metaTitle: string;
   metaDescription: string;
 }
@@ -34,6 +43,8 @@ interface StepImagesProps {
 
 export function StepImages({ data, onChange, colors, onNext, onBack }: StepImagesProps) {
   const hasColors = colors.length > 0;
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   // Ensure colorImages entries exist for each color
   const getColorImages = (color: string): string[] => {
@@ -46,6 +57,58 @@ export function StepImages({ data, onChange, colors, onNext, onBack }: StepImage
       ...data,
       colorImages: [...existing, { color, images }],
     });
+  };
+
+  // Video handlers
+  const handleVideoUpload = async (file: File) => {
+    if (!file.type.startsWith("video/")) return;
+    setIsUploadingVideo(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "videos");
+      const res = await fetch("/api/upload/video", { method: "POST", body: formData });
+      const result = await res.json();
+      if (result.success) {
+        onChange({
+          ...data,
+          videos: [...data.videos, { type: "upload", url: result.data.url }],
+        });
+      } else {
+        alert(result.error || "Failed to upload video");
+      }
+    } catch {
+      alert("Failed to upload video");
+    } finally {
+      setIsUploadingVideo(false);
+    }
+  };
+
+  const addExternalVideo = () => {
+    onChange({
+      ...data,
+      videos: [...data.videos, { type: "external", url: "" }],
+    });
+  };
+
+  const updateVideoUrl = (index: number, url: string) => {
+    const updated = [...data.videos];
+    updated[index] = { ...updated[index], url };
+    onChange({ ...data, videos: updated });
+  };
+
+  const removeVideo = async (index: number) => {
+    const video = data.videos[index];
+    if (video.type === "upload" && video.url) {
+      try {
+        await fetch("/api/upload/video", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: video.url }),
+        });
+      } catch { /* best-effort */ }
+    }
+    onChange({ ...data, videos: data.videos.filter((_, i) => i !== index) });
   };
 
   return (
@@ -110,6 +173,109 @@ export function StepImages({ data, onChange, colors, onNext, onBack }: StepImage
         </Card>
       )}
 
+      {/* Product Videos */}
+      <Card>
+        <div className="p-5 md:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Video size={20} className="text-gold-500" />
+            <h2 className="text-lg font-semibold text-charcoal-700">
+              Product Videos
+            </h2>
+            <span className="text-xs text-charcoal-400">
+              ({data.videos.length}/3)
+            </span>
+          </div>
+          <p className="text-sm text-charcoal-400 mb-4">
+            Upload short video clips (max 4MB, MP4/WebM) or add YouTube/Vimeo URLs.
+            Vercel free tier limits file uploads to 4MB — use external URLs for longer videos.
+          </p>
+
+          {/* Existing videos */}
+          <div className="space-y-3 mb-4">
+            {data.videos.map((video, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-3 rounded-xl border border-charcoal-100 bg-charcoal-50/30 p-3"
+              >
+                <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-charcoal-100 shrink-0">
+                  {video.type === "upload" ? (
+                    <Upload size={16} className="text-charcoal-500" />
+                  ) : (
+                    <Link2 size={16} className="text-charcoal-500" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {video.type === "external" && !video.url ? (
+                    <Input
+                      placeholder="Paste YouTube or Vimeo URL..."
+                      value={video.url}
+                      onChange={(e) => updateVideoUrl(index, e.target.value)}
+                    />
+                  ) : (
+                    <p className="text-sm text-charcoal-600 truncate">
+                      {video.url}
+                    </p>
+                  )}
+                  <p className="text-xs text-charcoal-400 capitalize">
+                    {video.type === "upload" ? "Uploaded file" : "External URL"}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeVideo(index)}
+                  className="text-charcoal-400 hover:text-error h-8 w-8 min-w-0 shrink-0"
+                >
+                  <Trash2 size={14} />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          {/* Add video buttons */}
+          {data.videos.length < 3 && (
+            <div className="flex flex-wrap gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => videoInputRef.current?.click()}
+                disabled={isUploadingVideo}
+              >
+                {isUploadingVideo ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Upload size={16} />
+                )}
+                {isUploadingVideo ? "Uploading..." : "Upload Video"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={addExternalVideo}
+              >
+                <Link2 size={16} />
+                Add YouTube/Vimeo URL
+              </Button>
+            </div>
+          )}
+
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/mp4,video/webm"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleVideoUpload(file);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      </Card>
+
       {/* Flags */}
       <Card>
         <div className="p-5 md:p-6">
@@ -140,6 +306,12 @@ export function StepImages({ data, onChange, colors, onNext, onBack }: StepImage
               description="Publish product on the website"
               checked={data.isActive}
               onChange={(v) => onChange({ ...data, isActive: v })}
+            />
+            <ToggleField
+              label="BIS Hallmark Certified"
+              description="Product has BIS hallmark certification"
+              checked={data.hallmarkCertified}
+              onChange={(v) => onChange({ ...data, hallmarkCertified: v })}
             />
           </div>
         </div>

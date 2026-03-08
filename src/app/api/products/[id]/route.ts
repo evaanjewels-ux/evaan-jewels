@@ -75,6 +75,7 @@ export async function PUT(
         wastageCharges: validatedData.wastageCharges ?? existing.wastageCharges,
         gstPercentage: validatedData.gstPercentage ?? existing.gstPercentage,
         otherCharges: (validatedData.otherCharges ?? existing.otherCharges) as Parameters<typeof calculateProductPrice>[0]["otherCharges"],
+        chargeBasedOnVariant: (validatedData.chargeBasedOnVariant ?? (existing as Record<string, unknown>).chargeBasedOnVariant) as Parameters<typeof calculateProductPrice>[0]["chargeBasedOnVariant"],
       });
 
       Object.assign(validatedData, prices, { lastPriceSync: new Date() });

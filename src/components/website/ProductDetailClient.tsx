@@ -39,6 +39,8 @@ interface ProductData {
   isOutOfStock: boolean;
   isNewArrival: boolean;
   isFeatured: boolean;
+  hallmarkCertified?: boolean;
+  videos?: { type: "upload" | "external"; url: string; thumbnailUrl?: string }[];
   category?: { name: string; slug: string } | null;
   metalComposition: {
     metal: string | { _id: string; name: string };
@@ -75,6 +77,11 @@ interface ProductData {
   sizes: string[];
   colors: string[];
   size?: string;
+  chargeBasedOnVariant?: {
+    metalId: string;
+    variantId: string;
+    variantName: string;
+  };
 }
 
 interface ProductDetailClientProps {
@@ -187,8 +194,22 @@ export function ProductDetailClient({
       wastageCharges: product.wastageCharges,
       gstPercentage: product.gstPercentage,
       otherCharges: product.otherCharges,
+      chargeBasedOnVariant: product.chargeBasedOnVariant
+        ? {
+            ...product.chargeBasedOnVariant,
+            // Pass the selected variant's pricePerGram if it's in the available metals
+            pricePerGram: (() => {
+              const m = availableMetals.find(
+                (am) => am._id === product.chargeBasedOnVariant!.metalId
+              );
+              return m?.variants.find(
+                (v) => v._id === product.chargeBasedOnVariant!.variantId
+              )?.pricePerGram;
+            })(),
+          }
+        : undefined,
     });
-  }, [product, selectedVariants]);
+  }, [product, selectedVariants, availableMetals]);
 
   // ─── Dynamic metal composition for display ─────
   const displayMetalComposition = useMemo(() => {
@@ -303,7 +324,11 @@ export function ProductDetailClient({
   return (
     <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
       {/* Gallery */}
-      <ProductGallery images={galleryImages} productName={product.name} />
+      <ProductGallery
+        images={galleryImages}
+        productName={product.name}
+        videos={product.videos}
+      />
 
       {/* Details */}
       <div className="flex flex-col">

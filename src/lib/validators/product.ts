@@ -49,6 +49,20 @@ const colorImageSchema = z.object({
   images: z.array(z.string()).default([]),
 });
 
+const productVideoSchema = z.object({
+  type: z.enum(["upload", "external"]),
+  url: z.string().min(1),
+  thumbnailUrl: z.string().optional().default(""),
+});
+
+const chargeBasedOnVariantSchema = z
+  .object({
+    metalId: z.string().min(1),
+    variantId: z.string().min(1),
+    variantName: z.string().min(1),
+  })
+  .optional();
+
 export const productCreateSchema = z.object({
   name: z.string().min(1, "Product name is required").max(200).trim(),
   productCode: z.string().min(1).optional(),
@@ -74,6 +88,8 @@ export const productCreateSchema = z.object({
 
   colorImages: z.array(colorImageSchema).optional().default([]),
 
+  videos: z.array(productVideoSchema).max(3).optional().default([]),
+
   isNewArrival: z.boolean().optional().default(false),
   isOutOfStock: z.boolean().optional().default(false),
   isFeatured: z.boolean().optional().default(false),
@@ -81,6 +97,9 @@ export const productCreateSchema = z.object({
 
   metaTitle: z.string().max(70).optional(),
   metaDescription: z.string().max(160).optional(),
+
+  chargeBasedOnVariant: chargeBasedOnVariantSchema,
+  hallmarkCertified: z.boolean().optional().default(false),
 
   grossWeight: z.number().min(0).optional().default(0),
   netWeight: z.number().min(0).optional().default(0),

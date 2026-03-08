@@ -10,7 +10,7 @@ import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { StepBasicInfo, type BasicInfoData } from "./StepBasicInfo";
 import { StepComposition, type CompositionData, type MetalEntry, type GemstoneEntry } from "./StepComposition";
 import { StepCharges, type ChargesData } from "./StepCharges";
-import { StepImages, type ImagesData, type ColorImageEntry } from "./StepImages";
+import { StepImages, type ImagesData, type ColorImageEntry, type VideoEntry } from "./StepImages";
 import { StepReview } from "./StepReview";
 import { calculateProductPrice } from "@/lib/pricing";
 import { generateProductCode } from "@/lib/utils";
@@ -147,6 +147,7 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
       makingCharges: formData.charges.makingCharges,
       gstPercentage: formData.charges.gstPercentage,
       otherCharges: formData.charges.otherCharges,
+      chargeBasedOnVariant: formData.charges.chargeBasedOnVariant,
     });
   };
 
@@ -211,6 +212,7 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         isOutOfStock: formData.images.isOutOfStock,
         isFeatured: formData.images.isFeatured,
         isActive: formData.images.isActive,
+        hallmarkCertified: formData.images.hallmarkCertified,
 
         metaTitle: formData.images.metaTitle || undefined,
         metaDescription: formData.images.metaDescription || undefined,
@@ -218,6 +220,12 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         colorImages: formData.images.colorImages.filter(
           (ci: ColorImageEntry) => ci.images.length > 0
         ),
+
+        videos: formData.images.videos.filter(
+          (v: VideoEntry) => v.url.length > 0
+        ),
+
+        chargeBasedOnVariant: formData.charges.chargeBasedOnVariant || undefined,
 
         sizes: formData.basic.sizes || [],
         colors: formData.basic.colors || [],
@@ -395,14 +403,17 @@ function getDefaultFormData(): ProductFormData {
       makingCharges: { type: "fixed", value: 0 },
       gstPercentage: 3,
       otherCharges: [],
+      chargeBasedOnVariant: undefined,
     },
     images: {
       images: [],
       colorImages: [],
+      videos: [],
       isNewArrival: false,
       isOutOfStock: false,
       isFeatured: false,
       isActive: true,
+      hallmarkCertified: false,
       metaTitle: "",
       metaDescription: "",
     },
@@ -500,6 +511,13 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
         name: (c.name as string) || "",
         amount: (c.amount as number) || 0,
       })),
+      chargeBasedOnVariant: data.chargeBasedOnVariant
+        ? {
+            metalId: ((data.chargeBasedOnVariant as Record<string, unknown>).metalId as string) || "",
+            variantId: ((data.chargeBasedOnVariant as Record<string, unknown>).variantId as string) || "",
+            variantName: ((data.chargeBasedOnVariant as Record<string, unknown>).variantName as string) || "",
+          }
+        : undefined,
     },
     images: {
       images: (data.images as string[]) || [],
@@ -507,10 +525,16 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
         color: (ci.color as string) || "",
         images: (ci.images as string[]) || [],
       })),
+      videos: ((data.videos as Array<Record<string, unknown>>) || []).map((v) => ({
+        type: (v.type as "upload" | "external") || "external",
+        url: (v.url as string) || "",
+        thumbnailUrl: (v.thumbnailUrl as string) || "",
+      })),
       isNewArrival: (data.isNewArrival as boolean) ?? false,
       isOutOfStock: (data.isOutOfStock as boolean) ?? false,
       isFeatured: (data.isFeatured as boolean) ?? false,
       isActive: (data.isActive as boolean) ?? true,
+      hallmarkCertified: (data.hallmarkCertified as boolean) ?? false,
       metaTitle: (data.metaTitle as string) || "",
       metaDescription: (data.metaDescription as string) || "",
     },

@@ -213,6 +213,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
           {product.isOutOfStock && (
             <Badge variant="error">Out of Stock</Badge>
           )}
+          {product.hallmarkCertified && (
+            <Badge variant="success">BIS Hallmark</Badge>
+          )}
         </div>
 
         {/* Category & Code */}
@@ -252,6 +255,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
               isOutOfStock: product.isOutOfStock,
               isNewArrival: product.isNewArrival,
               isFeatured: product.isFeatured,
+              hallmarkCertified: product.hallmarkCertified,
+              videos: product.videos || [],
               category: category ? { name: category.name, slug: category.slug } : null,
               metalComposition: product.metalComposition || [],
               gemstoneComposition: product.gemstoneComposition || [],
@@ -271,6 +276,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               sizes: product.sizes || [],
               colors: product.colors || [],
               size: product.size,
+              chargeBasedOnVariant: product.chargeBasedOnVariant || undefined,
             }}
             availableMetals={availableMetals}
             whatsappMessage={whatsappMessage}

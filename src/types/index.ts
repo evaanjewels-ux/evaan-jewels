@@ -84,6 +84,13 @@ export interface IMetalComposition {
   wastageCharges?: ICharges;
 }
 
+export interface IProductVideo {
+  /** 'upload' = hosted on R2, 'external' = YouTube/Vimeo embed URL */
+  type: "upload" | "external";
+  url: string;
+  thumbnailUrl?: string;
+}
+
 export interface IGemstoneComposition {
   gemstone: Types.ObjectId;
   variantId: Types.ObjectId;
@@ -143,11 +150,22 @@ export interface IProduct {
   images: string[];
   thumbnailImage: string;
   colorImages: IColorImage[];
+  videos: IProductVideo[];
 
   isNewArrival: boolean;
   isOutOfStock: boolean;
   isFeatured: boolean;
   isActive: boolean;
+
+  /** Which metal variant's price to use as base for making/wastage charges.
+   * If set, making charges and per-metal wastage are calculated using this variant's
+   * price-per-gram instead of each row's own price. */
+  chargeBasedOnVariant?: {
+    metalId: string;
+    variantId: string;
+    variantName: string;
+  };
+  hallmarkCertified: boolean;
 
   metaTitle?: string;
   metaDescription?: string;

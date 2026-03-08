@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
       wastageCharges: validatedData.wastageCharges ?? { type: "fixed", value: 0 },
       gstPercentage: validatedData.gstPercentage ?? 3,
       otherCharges: (validatedData.otherCharges ?? []) as Parameters<typeof calculateProductPrice>[0]["otherCharges"],
+      chargeBasedOnVariant: validatedData.chargeBasedOnVariant as Parameters<typeof calculateProductPrice>[0]["chargeBasedOnVariant"],
     });
 
     const product = await Product.create({ ...validatedData, ...prices, lastPriceSync: new Date() });

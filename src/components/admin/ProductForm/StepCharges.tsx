@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, Trash2, CircleDollarSign, Gem } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Trash2, CircleDollarSign, Gem, Info } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -14,6 +15,24 @@ export interface ChargesData {
   makingCharges: { type: "fixed" | "percentage"; value: number };
   gstPercentage: number;
   otherCharges: Array<{ name: string; amount: number }>;
+  /** Which variant's price to use as the base for making/wastage calculations */
+  chargeBasedOnVariant?: {
+    metalId: string;
+    variantId: string;
+    variantName: string;
+  };
+}
+
+interface MetalApiData {
+  _id: string;
+  name: string;
+  variants: Array<{
+    _id: string;
+    name: string;
+    purity: number;
+    pricePerGram: number;
+    unit: string;
+  }>;
 }
 
 interface StepChargesProps {
@@ -43,16 +62,46 @@ export function StepCharges({
   onNext,
   onBack,
 }: StepChargesProps) {
+  const [metals, setMetals] = useState<MetalApiData[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchMetals = async () => {
+      try {
+        const res = await fetch(`/api/metals?_t=${Date.now()}`, { cache: "no-store" });
+        const d = await res.json();
+        if (d.success && !cancelled) setMetals(d.data || []);
+      } catch { /* ignore */ }
+    };
+    fetchMetals();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Find the charge variant's pricePerGram for display
+  const chargeVariantPrice = (() => {
+    if (!data.chargeBasedOnVariant) return undefined;
+    const metal = metals.find((m) => m._id === data.chargeBasedOnVariant!.metalId);
+    const variant = metal?.variants.find((v) => v._id === data.chargeBasedOnVariant!.variantId);
+    return variant?.pricePerGram;
+  })();
+
   const metalTotal = compositionData.metals.reduce(
     (s, m) => s + m.weightInGrams * m.pricePerGram,
     0
   );
 
-  const makingAmount = resolveCharge(data.makingCharges, metalTotal);
+  // chargeBaseMetalTotal — same logic as pricing.ts
+  const chargeBaseMetalTotal = data.chargeBasedOnVariant && chargeVariantPrice !== undefined
+    ? compositionData.metals.reduce((s, m) => s + m.weightInGrams * chargeVariantPrice, 0)
+    : metalTotal;
+
+  const makingAmount = resolveCharge(data.makingCharges, chargeBaseMetalTotal);
 
   // Per-material wastage totals
   const metalWastageTotal = compositionData.metals.reduce((s, m) => {
-    const subtotal = m.weightInGrams * m.pricePerGram;
+    const subtotal = data.chargeBasedOnVariant && chargeVariantPrice !== undefined
+      ? m.weightInGrams * chargeVariantPrice
+      : m.weightInGrams * m.pricePerGram;
     return s + resolveCharge(m.wastageCharges, subtotal);
   }, 0);
   const gemstoneWastageTotal = compositionData.gemstones.reduce((s, g) => {
@@ -124,12 +173,108 @@ export function StepCharges({
     });
   };
 
+  // Collect the distinct metal IDs that are in the composition
+  const compositionMetalIds = new Set(
+    compositionData.metals.map((m) => m.metalId).filter(Boolean)
+  );
+
+  // Only show variants of metals present in the composition
+  const filteredMetals = metals.filter((m) => compositionMetalIds.has(m._id));
+
+  // Auto-clear chargeBasedOnVariant if its metal was removed from composition
+  useEffect(() => {
+    if (
+      data.chargeBasedOnVariant &&
+      !compositionMetalIds.has(data.chargeBasedOnVariant.metalId)
+    ) {
+      onChange({ ...data, chargeBasedOnVariant: undefined });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compositionData.metals]);
+
   const noComposition =
     compositionData.metals.length === 0 &&
     compositionData.gemstones.length === 0;
 
   return (
     <div className="space-y-6">
+      {/* Charge Based On Variant Selector — before Making Charges */}
+      {compositionData.metals.length > 0 && (
+        <Card>
+          <div className="p-5 md:p-6 space-y-4">
+            <div className="flex items-start gap-2">
+              <Info size={18} className="text-gold-500 mt-0.5 shrink-0" />
+              <div>
+                <h2 className="text-lg font-semibold text-charcoal-700">
+                  Charge Calculation Variant
+                </h2>
+                <p className="text-xs text-charcoal-400 mt-0.5">
+                  In the jewelry industry, making and wastage charges are often
+                  calculated at a higher purity rate (e.g., 24K) even if the product
+                  uses a lower variant (e.g., 18K). Select the variant whose rate
+                  should be used for making &amp; wastage charge calculations.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                label="Base Variant for Charges"
+                value={
+                  data.chargeBasedOnVariant
+                    ? `${data.chargeBasedOnVariant.metalId}|${data.chargeBasedOnVariant.variantId}`
+                    : ""
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) {
+                    onChange({ ...data, chargeBasedOnVariant: undefined });
+                    return;
+                  }
+                  const [metalId, variantId] = val.split("|");
+                  const metal = metals.find((m) => m._id === metalId);
+                  const variant = metal?.variants.find((v) => v._id === variantId);
+                  if (metal && variant) {
+                    onChange({
+                      ...data,
+                      chargeBasedOnVariant: {
+                        metalId,
+                        variantId,
+                        variantName: `${metal.name} — ${variant.name}`,
+                      },
+                    });
+                  }
+                }}
+                options={[
+                  { value: "", label: "Use each metal's own rate (default)" },
+                  ...filteredMetals.flatMap((m) =>
+                    m.variants.map((v) => ({
+                      value: `${m._id}|${v._id}`,
+                      label: `${m.name} — ${v.name} (${v.purity}%) @ ${formatCurrency(v.pricePerGram)}/g`,
+                    }))
+                  ),
+                ]}
+              />
+              {data.chargeBasedOnVariant && chargeVariantPrice !== undefined && (
+                <div>
+                  <label className="block text-sm font-medium text-charcoal-600 mb-1.5">
+                    Charge Base Metal Total
+                  </label>
+                  <div className="flex items-center h-11 px-3 rounded-lg bg-gold-50 border border-gold-200">
+                    <span className="text-sm font-mono text-gold-700">
+                      {formatCurrency(chargeBaseMetalTotal)}
+                    </span>
+                    <span className="text-xs text-charcoal-400 ml-auto">
+                      (actual: {formatCurrency(metalTotal)})
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Making Charges */}
       <Card>
         <div className="p-5 md:p-6 space-y-5">
@@ -183,7 +328,10 @@ export function StepCharges({
             </div>
           </div>
           <p className="text-xs text-charcoal-400">
-            Making charges are calculated against the total metal value.
+            Making charges are calculated against the total metal value
+            {data.chargeBasedOnVariant
+              ? ` (at ${data.chargeBasedOnVariant.variantName} rate)`
+              : ""}.
           </p>
         </div>
       </Card>
@@ -225,7 +373,10 @@ export function StepCharges({
                     Metals
                   </div>
                   {compositionData.metals.map((m, index) => {
-                    const subtotal = m.weightInGrams * m.pricePerGram;
+                    const subtotal = data.chargeBasedOnVariant && chargeVariantPrice !== undefined
+                      ? m.weightInGrams * chargeVariantPrice
+                      : m.weightInGrams * m.pricePerGram;
+                    const actualSubtotal = m.weightInGrams * m.pricePerGram;
                     const wastageAmt = resolveCharge(m.wastageCharges, subtotal);
                     const label =
                       m.metalName && m.variantName
@@ -243,6 +394,11 @@ export function StepCharges({
                           </p>
                           <p className="text-xs text-charcoal-400">
                             Subtotal: ₹ {formatCurrency(subtotal)}
+                            {data.chargeBasedOnVariant && chargeVariantPrice !== undefined && subtotal !== actualSubtotal && (
+                              <span className="text-charcoal-300 ml-1">
+                                (actual: ₹ {formatCurrency(actualSubtotal)})
+                              </span>
+                            )}
                           </p>
                         </div>
                         {/* Type */}

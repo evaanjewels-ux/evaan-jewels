@@ -111,19 +111,37 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Find and update all affected products
+    //    a) Products whose composition uses this variant directly
+    //    b) Products whose chargeBasedOnVariant points to this variant
+    //       (their making/wastage charges depend on this variant's price)
     const compositionField =
       entityType === "metal" ? "metalComposition" : "gemstoneComposition";
     const entityField = entityType === "metal" ? "metal" : "gemstone";
 
-    const products = await Product.find({
+    const compositionQuery = {
       [`${compositionField}.${entityField}`]: entityId,
       [`${compositionField}.variantId`]: variantId,
-    });
+    };
+
+    // Products that use this variant as their charge calculation base
+    const chargeVariantQuery =
+      entityType === "metal"
+        ? {
+            "chargeBasedOnVariant.variantId": variantId,
+          }
+        : null;
+
+    // Combine both queries — avoid duplicates via $or
+    const productQuery = chargeVariantQuery
+      ? { $or: [compositionQuery, chargeVariantQuery] }
+      : compositionQuery;
+
+    const products = await Product.find(productQuery);
 
     let syncedCount = 0;
 
     for (const product of products) {
-      // Update the composition entry with the new price
+      // Update the composition entry with the new price (if this variant is in composition)
       if (entityType === "metal") {
         for (const comp of product.metalComposition) {
           if (
@@ -149,6 +167,20 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Build chargeBasedOnVariant with current pricePerGram for the pricing engine
+      const cbv = product.chargeBasedOnVariant?.variantId
+        ? {
+            metalId: product.chargeBasedOnVariant.metalId,
+            variantId: product.chargeBasedOnVariant.variantId,
+            variantName: product.chargeBasedOnVariant.variantName,
+            // If this IS the charge variant being updated, use the new price
+            pricePerGram:
+              product.chargeBasedOnVariant.variantId === variantId
+                ? price
+                : undefined,
+          }
+        : undefined;
+
       // Recalculate all prices
       const priceResult = calculateProductPrice({
         metalComposition: product.metalComposition,
@@ -157,6 +189,7 @@ export async function POST(request: NextRequest) {
         wastageCharges: product.wastageCharges,
         gstPercentage: product.gstPercentage,
         otherCharges: product.otherCharges || [],
+        chargeBasedOnVariant: cbv,
       });
 
       product.metalTotal = priceResult.metalTotal;

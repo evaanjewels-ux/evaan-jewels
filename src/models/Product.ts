@@ -123,6 +123,15 @@ const ColorImageSchema = new Schema(
   { _id: false }
 );
 
+const ProductVideoSchema = new Schema(
+  {
+    type: { type: String, enum: ["upload", "external"], required: true },
+    url: { type: String, required: true },
+    thumbnailUrl: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const ProductSchema = new Schema<IProduct>(
   {
     name: {
@@ -193,11 +202,34 @@ const ProductSchema = new Schema<IProduct>(
     // Color-specific images
     colorImages: { type: [ColorImageSchema], default: [] },
 
+    // Videos
+    videos: {
+      type: [ProductVideoSchema],
+      default: [],
+      validate: {
+        validator: function (v: unknown[]) {
+          return v.length <= 3;
+        },
+        message: "Maximum 3 videos allowed",
+      },
+    },
+
     // Flags
     isNewArrival: { type: Boolean, default: false },
     isOutOfStock: { type: Boolean, default: false },
     isFeatured: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
+
+    // Charge variant selection — which variant's price to use for making/wastage
+    chargeBasedOnVariant: {
+      metalId: { type: String },
+      variantId: { type: String },
+      variantName: { type: String },
+      _id: false,
+    },
+
+    // Hallmark
+    hallmarkCertified: { type: Boolean, default: false },
 
     // SEO
     metaTitle: { type: String },
@@ -235,6 +267,7 @@ ProductSchema.index({
   "gemstoneComposition.gemstone": 1,
   "gemstoneComposition.variantId": 1,
 });
+ProductSchema.index({ "chargeBasedOnVariant.variantId": 1 });
 ProductSchema.index({ totalPrice: 1 });
 ProductSchema.index({ isFeatured: 1 });
 

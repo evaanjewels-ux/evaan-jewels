@@ -19,6 +19,7 @@ interface ProductCardProps {
     isNewArrival: boolean;
     isOutOfStock: boolean;
     isFeatured: boolean;
+    hallmarkCertified?: boolean;
     metalComposition?: { variantName: string; weightInGrams: number }[];
   };
   className?: string;
@@ -57,6 +58,9 @@ export function ProductCard({ product, className, priority = false }: ProductCar
           )}
           {product.isOutOfStock && (
             <Badge variant="error" size="sm">Sold Out</Badge>
+          )}
+          {product.hallmarkCertified && (
+            <Badge variant="success" size="sm">Hallmark</Badge>
           )}
         </div>
 

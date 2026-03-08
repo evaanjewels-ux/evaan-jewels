@@ -11,6 +11,17 @@ interface PriceCalculationInput {
   wastageCharges?: ICharges;
   gstPercentage: number;
   otherCharges: IOtherCharge[];
+  /**
+   * When set, making charges & per-metal wastage use this variant's price-per-gram
+   * as the base instead of each composition row's own pricePerGram.
+   * Common in the jewelry industry where 18K items' charges are calculated at 24K rates.
+   */
+  chargeBasedOnVariant?: {
+    metalId: string;
+    variantId: string;
+    variantName: string;
+    pricePerGram?: number;
+  };
 }
 
 interface PriceCalculationResult {
@@ -30,15 +41,47 @@ interface PriceCalculationResult {
  * wastageCharges applied against that component's subtotal).
  * Falls back to the legacy global `wastageCharges` × metalTotal when no
  * per-component charges are present (backward compat).
+ *
+ * When `chargeBasedOnVariant` is set, making charges and per-metal wastage use
+ * a single variant's pricePerGram as the base. This models the common jewelry
+ * industry practice of charging making/wastage at 24K rate even for 18K products.
  */
 export function calculateProductPrice(
   input: PriceCalculationInput
 ): PriceCalculationResult {
+  // Determine the "charge base" price-per-gram override (if any).
+  // When chargeBasedOnVariant is set, we look up that variant's pricePerGram
+  // from the composition; if the variant itself is not in the composition we fall
+  // back to chargeBasedOnVariant.pricePerGram passed in by the caller.
+  let chargePricePerGram: number | undefined;
+  if (input.chargeBasedOnVariant) {
+    const match = input.metalComposition.find(
+      (c) =>
+        String(c.variantId) === String(input.chargeBasedOnVariant!.variantId)
+    );
+    chargePricePerGram =
+      match?.pricePerGram ?? input.chargeBasedOnVariant.pricePerGram;
+  }
+
   // 1. Calculate metal total & per-metal wastage
   let metalWastageTotal = 0;
+  let chargeBaseMetalTotal = 0; // metalTotal re-computed at the charge variant rate
   const metalTotal = input.metalComposition.reduce((sum, comp) => {
     const subtotal = comp.weightInGrams * comp.pricePerGram;
-    metalWastageTotal += resolveCharge(comp.wastageCharges, subtotal);
+
+    // For wastage, use charge-variant price if set, else real price
+    const wastageBase =
+      chargePricePerGram !== undefined
+        ? comp.weightInGrams * chargePricePerGram
+        : subtotal;
+    metalWastageTotal += resolveCharge(comp.wastageCharges, wastageBase);
+
+    // Track the charge-variant metal total for making charge calculation
+    chargeBaseMetalTotal +=
+      chargePricePerGram !== undefined
+        ? comp.weightInGrams * chargePricePerGram
+        : subtotal;
+
     return sum + subtotal;
   }, 0);
 
@@ -50,8 +93,11 @@ export function calculateProductPrice(
     return sum + subtotal;
   }, 0);
 
-  // 3. Making charges (always based on metal total)
-  const makingChargeAmount = resolveCharge(input.makingCharges, metalTotal);
+  // 3. Making charges — based on charge-variant metal total
+  const makingChargeAmount = resolveCharge(
+    input.makingCharges,
+    chargeBaseMetalTotal
+  );
 
   // 4. Wastage — per-component if present, otherwise fall back to legacy global
   const hasPerComponentWastage =
@@ -60,7 +106,7 @@ export function calculateProductPrice(
 
   const wastageChargeAmount = hasPerComponentWastage
     ? metalWastageTotal + gemstoneWastageTotal
-    : resolveCharge(input.wastageCharges, metalTotal);
+    : resolveCharge(input.wastageCharges, chargeBaseMetalTotal);
 
   // 5. Other charges total
   const otherChargesTotal = input.otherCharges.reduce(

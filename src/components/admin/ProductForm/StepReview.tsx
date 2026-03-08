@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil } from "lucide-react";
+import { Pencil, Video } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -186,6 +186,11 @@ export function StepReview({
                       ? `${formData.charges.makingCharges.value}%`
                       : "fixed"}
                     )
+                    {formData.charges.chargeBasedOnVariant && (
+                      <span className="text-xs text-gold-600 ml-1">
+                        @ {formData.charges.chargeBasedOnVariant.variantName} rate
+                      </span>
+                    )}
                   </span>
                   <span className="font-mono text-charcoal-700">
                     {formatCurrency(prices.makingChargeAmount)}
@@ -196,6 +201,11 @@ export function StepReview({
                 <div className="flex items-center justify-between text-sm py-1">
                   <span className="text-charcoal-600">
                     Wastage Charges (per-material)
+                    {formData.charges.chargeBasedOnVariant && (
+                      <span className="text-xs text-gold-600 ml-1">
+                        @ {formData.charges.chargeBasedOnVariant.variantName} rate
+                      </span>
+                    )}
                   </span>
                   <span className="font-mono text-charcoal-700">
                     {formatCurrency(prices.wastageChargeAmount)}
@@ -278,6 +288,15 @@ export function StepReview({
             </div>
           )}
 
+          {formData.images.videos.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center gap-1.5 text-xs text-charcoal-500 mb-2">
+                <Video size={14} />
+                {formData.images.videos.length} video(s) attached
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2">
             {formData.images.isNewArrival && (
               <Badge variant="rose" size="sm">
@@ -292,6 +311,11 @@ export function StepReview({
             {formData.images.isOutOfStock && (
               <Badge variant="error" size="sm">
                 Out of Stock
+              </Badge>
+            )}
+            {formData.images.hallmarkCertified && (
+              <Badge variant="success" size="sm">
+                BIS Hallmark
               </Badge>
             )}
             {formData.images.isActive ? (
