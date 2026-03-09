@@ -58,7 +58,7 @@ export function Header() {
             <span className="hidden text-charcoal-500 md:inline">|</span>
             <span className="hidden items-center gap-1.5 md:flex">
               <MapPin className="h-3 w-3" />
-              <span>2nd Floor, B-169, Mohan Garden,
+              <span>2nd Floor, B-169, Mohan Garden ,
 Uttam Nagar, Delhi — 110059 </span>
             </span>
           </div>
