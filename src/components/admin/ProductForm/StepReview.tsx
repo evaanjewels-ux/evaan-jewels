@@ -184,6 +184,8 @@ export function StepReview({
                     Making Charges (
                     {formData.charges.makingCharges.type === "percentage"
                       ? `${formData.charges.makingCharges.value}%`
+                      : formData.charges.makingCharges.type === "per_gram"
+                      ? `₹${formData.charges.makingCharges.value}/g`
                       : "fixed"}
                     )
                     {formData.charges.chargeBasedOnVariant && (

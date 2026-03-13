@@ -34,7 +34,7 @@ const MetalCompositionSchema = new Schema(
     wastageCharges: {
       type: {
         type: String,
-        enum: ["fixed", "percentage"],
+        enum: ["fixed", "percentage", "per_gram"],
         default: "percentage",
       },
       value: { type: Number, default: 0, min: 0 },
@@ -81,7 +81,7 @@ const GemstoneCompositionSchema = new Schema(
     wastageCharges: {
       type: {
         type: String,
-        enum: ["fixed", "percentage"],
+        enum: ["fixed", "percentage", "per_gram"],
         default: "percentage",
       },
       value: { type: Number, default: 0, min: 0 },
@@ -95,7 +95,7 @@ const ChargesSchema = new Schema(
   {
     type: {
       type: String,
-      enum: ["fixed", "percentage"],
+      enum: ["fixed", "percentage", "per_gram"],
       default: "fixed",
     },
     value: {

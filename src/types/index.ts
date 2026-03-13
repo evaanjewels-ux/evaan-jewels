@@ -104,7 +104,7 @@ export interface IGemstoneComposition {
 }
 
 export interface ICharges {
-  type: "fixed" | "percentage";
+  type: "fixed" | "percentage" | "per_gram";
   value: number;
 }
 

@@ -49,7 +49,7 @@ interface ProductData {
     weightInGrams: number;
     pricePerGram: number;
     subtotal: number;
-    wastageCharges?: { type: "fixed" | "percentage"; value: number };
+    wastageCharges?: { type: "fixed" | "percentage" | "per_gram"; value: number };
   }[];
   gemstoneComposition: {
     gemstone: string | { _id: string; name: string };
@@ -59,10 +59,10 @@ interface ProductData {
     quantity: number;
     pricePerCarat: number;
     subtotal: number;
-    wastageCharges?: { type: "fixed" | "percentage"; value: number };
+    wastageCharges?: { type: "fixed" | "percentage" | "per_gram"; value: number };
   }[];
-  makingCharges: { type: "fixed" | "percentage"; value: number };
-  wastageCharges: { type: "fixed" | "percentage"; value: number };
+  makingCharges: { type: "fixed" | "percentage" | "per_gram"; value: number };
+  wastageCharges: { type: "fixed" | "percentage" | "per_gram"; value: number };
   gstPercentage: number;
   otherCharges: { name: string; amount: number }[];
   metalTotal: number;

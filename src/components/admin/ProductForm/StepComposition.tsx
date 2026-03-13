@@ -17,7 +17,7 @@ export interface MetalEntry {
   weightInGrams: number;
   pricePerGram: number;
   /** Per-metal wastage charges */
-  wastageCharges: { type: "fixed" | "percentage"; value: number };
+  wastageCharges: { type: "fixed" | "percentage" | "per_gram"; value: number };
 }
 
 export interface GemstoneEntry {
@@ -29,7 +29,7 @@ export interface GemstoneEntry {
   quantity: number;
   pricePerCarat: number;
   /** Per-gemstone wastage charges */
-  wastageCharges: { type: "fixed" | "percentage"; value: number };
+  wastageCharges: { type: "fixed" | "percentage" | "per_gram"; value: number };
 }
 
 export interface CompositionData {

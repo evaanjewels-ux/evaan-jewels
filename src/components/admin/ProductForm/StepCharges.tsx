@@ -12,7 +12,7 @@ import { CHARGE_TYPES, DEFAULT_GST_PERCENTAGE } from "@/constants";
 import type { CompositionData, MetalEntry, GemstoneEntry } from "./StepComposition";
 
 export interface ChargesData {
-  makingCharges: { type: "fixed" | "percentage"; value: number };
+  makingCharges: { type: "fixed" | "percentage" | "per_gram"; value: number };
   gstPercentage: number;
   otherCharges: Array<{ name: string; amount: number }>;
   /** Which variant's price to use as the base for making/wastage calculations */
@@ -46,11 +46,13 @@ interface StepChargesProps {
 }
 
 function resolveCharge(
-  charges: { type: "fixed" | "percentage"; value: number } | undefined,
-  base: number
+  charges: { type: "fixed" | "percentage" | "per_gram"; value: number } | undefined,
+  base: number,
+  weightInUnits?: number
 ): number {
   if (!charges || !charges.value) return 0;
   if (charges.type === "percentage") return base * (charges.value / 100);
+  if (charges.type === "per_gram") return charges.value * (weightInUnits ?? 0);
   return charges.value;
 }
 
@@ -90,23 +92,28 @@ export function StepCharges({
     0
   );
 
+  const totalMetalWeight = compositionData.metals.reduce(
+    (s, m) => s + m.weightInGrams,
+    0
+  );
+
   // chargeBaseMetalTotal — same logic as pricing.ts
   const chargeBaseMetalTotal = data.chargeBasedOnVariant && chargeVariantPrice !== undefined
     ? compositionData.metals.reduce((s, m) => s + m.weightInGrams * chargeVariantPrice, 0)
     : metalTotal;
 
-  const makingAmount = resolveCharge(data.makingCharges, chargeBaseMetalTotal);
+  const makingAmount = resolveCharge(data.makingCharges, chargeBaseMetalTotal, totalMetalWeight);
 
   // Per-material wastage totals
   const metalWastageTotal = compositionData.metals.reduce((s, m) => {
     const subtotal = data.chargeBasedOnVariant && chargeVariantPrice !== undefined
       ? m.weightInGrams * chargeVariantPrice
       : m.weightInGrams * m.pricePerGram;
-    return s + resolveCharge(m.wastageCharges, subtotal);
+    return s + resolveCharge(m.wastageCharges, subtotal, m.weightInGrams);
   }, 0);
   const gemstoneWastageTotal = compositionData.gemstones.reduce((s, g) => {
     const subtotal = g.weightInCarats * g.quantity * g.pricePerCarat;
-    return s + resolveCharge(g.wastageCharges, subtotal);
+    return s + resolveCharge(g.wastageCharges, subtotal, g.weightInCarats * g.quantity);
   }, 0);
   const totalWastage = metalWastageTotal + gemstoneWastageTotal;
 
@@ -290,7 +297,7 @@ export function StepCharges({
                   ...data,
                   makingCharges: {
                     ...data.makingCharges,
-                    type: e.target.value as "fixed" | "percentage",
+                    type: e.target.value as "fixed" | "percentage" | "per_gram",
                   },
                 })
               }
@@ -300,6 +307,8 @@ export function StepCharges({
               label={
                 data.makingCharges.type === "percentage"
                   ? "Percentage (%)"
+                  : data.makingCharges.type === "per_gram"
+                  ? "Rate per Gram (₹/g)"
                   : "Amount (₹)"
               }
               type="number"
@@ -315,6 +324,11 @@ export function StepCharges({
                   },
                 })
               }
+              helperText={
+                data.makingCharges.type === "per_gram" && totalMetalWeight > 0
+                  ? `${data.makingCharges.value || 0} ₹/g × ${totalMetalWeight}g = ${formatCurrency((data.makingCharges.value || 0) * totalMetalWeight)}`
+                  : undefined
+              }
             />
             <div>
               <label className="block text-sm font-medium text-charcoal-600 mb-1.5">
@@ -328,10 +342,11 @@ export function StepCharges({
             </div>
           </div>
           <p className="text-xs text-charcoal-400">
-            Making charges are calculated against the total metal value
-            {data.chargeBasedOnVariant
-              ? ` (at ${data.chargeBasedOnVariant.variantName} rate)`
-              : ""}.
+            {data.makingCharges.type === "per_gram"
+              ? `Making charges are calculated as rate per gram × total metal weight (${totalMetalWeight}g)`
+              : `Making charges are calculated against the total metal value${data.chargeBasedOnVariant
+                ? ` (at ${data.chargeBasedOnVariant.variantName} rate)`
+                : ""}.`}
           </p>
         </div>
       </Card>
@@ -377,7 +392,7 @@ export function StepCharges({
                       ? m.weightInGrams * chargeVariantPrice
                       : m.weightInGrams * m.pricePerGram;
                     const actualSubtotal = m.weightInGrams * m.pricePerGram;
-                    const wastageAmt = resolveCharge(m.wastageCharges, subtotal);
+                    const wastageAmt = resolveCharge(m.wastageCharges, subtotal, m.weightInGrams);
                     const label =
                       m.metalName && m.variantName
                         ? `${m.metalName} — ${m.variantName}`
@@ -416,6 +431,9 @@ export function StepCharges({
                             (m.wastageCharges?.type ?? "percentage") ===
                             "percentage"
                               ? "Wastage (%)"
+                              : (m.wastageCharges?.type ?? "percentage") ===
+                                "per_gram"
+                              ? "Wastage (₹/g)"
                               : "Wastage (₹)"
                           }
                           type="number"
@@ -428,6 +446,11 @@ export function StepCharges({
                               "value",
                               parseFloat(e.target.value) || 0
                             )
+                          }
+                          helperText={
+                            (m.wastageCharges?.type ?? "percentage") === "per_gram" && m.weightInGrams > 0
+                              ? `${m.wastageCharges?.value || 0} ₹/g × ${m.weightInGrams}g`
+                              : undefined
                           }
                         />
                         {/* Resolved */}
@@ -457,7 +480,7 @@ export function StepCharges({
                   {compositionData.gemstones.map((g, index) => {
                     const subtotal =
                       g.weightInCarats * g.quantity * g.pricePerCarat;
-                    const wastageAmt = resolveCharge(g.wastageCharges, subtotal);
+                    const wastageAmt = resolveCharge(g.wastageCharges, subtotal, g.weightInCarats * g.quantity);
                     const label =
                       g.gemstoneName && g.variantName
                         ? `${g.gemstoneName} — ${g.variantName}`
@@ -491,6 +514,9 @@ export function StepCharges({
                             (g.wastageCharges?.type ?? "percentage") ===
                             "percentage"
                               ? "Wastage (%)"
+                              : (g.wastageCharges?.type ?? "percentage") ===
+                                "per_gram"
+                              ? "Wastage (₹/ct)"
                               : "Wastage (₹)"
                           }
                           type="number"

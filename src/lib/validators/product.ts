@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const perItemWastageSchema = z
   .object({
-    type: z.enum(["fixed", "percentage"]),
+    type: z.enum(["fixed", "percentage", "per_gram"]),
     value: z.number().min(0),
   })
   .optional()
@@ -32,7 +32,7 @@ const gemstoneCompositionSchema = z.object({
 });
 
 const chargesSchema = z.object({
-  type: z.enum(["fixed", "percentage"]),
+  type: z.enum(["fixed", "percentage", "per_gram"]),
   value: z.number().min(0),
 });
 

@@ -294,6 +294,38 @@ describe("calculateProductPrice", () => {
       expect(!decimals || decimals.length <= 2).toBe(true);
     });
   });
+
+  it("calculates per_gram making and wastage charges", () => {
+    const result = calculateProductPrice({
+      metalComposition: [
+        {
+          metal: oid(),
+          variantId: oid(),
+          variantName: "Gold 22K",
+          weightInGrams: 10,
+          pricePerGram: 6200,
+          subtotal: 0,
+          wastageCharges: { type: "per_gram", value: 200 },
+        },
+      ],
+      gemstoneComposition: [],
+      makingCharges: { type: "per_gram", value: 500 },
+      gstPercentage: 3,
+      otherCharges: [],
+    });
+
+    // metalTotal = 10 * 6200 = 62000
+    expect(result.metalTotal).toBe(62000);
+    // making = 500/g * 10g = 5000
+    expect(result.makingChargeAmount).toBe(5000);
+    // wastage = 200/g * 10g = 2000
+    expect(result.wastageChargeAmount).toBe(2000);
+    // subtotal = 62000 + 5000 + 2000 = 69000
+    expect(result.subtotal).toBe(69000);
+    // GST = 3% of 69000 = 2070
+    expect(result.gstAmount).toBe(2070);
+    expect(result.totalPrice).toBe(71070);
+  });
 });
 
 describe("calculateMetalSubtotals", () => {

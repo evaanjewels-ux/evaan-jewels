@@ -66,15 +66,17 @@ export function calculateProductPrice(
   // 1. Calculate metal total & per-metal wastage
   let metalWastageTotal = 0;
   let chargeBaseMetalTotal = 0; // metalTotal re-computed at the charge variant rate
+  let totalMetalWeight = 0; // total metal weight in grams (for per_gram charges)
   const metalTotal = input.metalComposition.reduce((sum, comp) => {
     const subtotal = comp.weightInGrams * comp.pricePerGram;
+    totalMetalWeight += comp.weightInGrams;
 
     // For wastage, use charge-variant price if set, else real price
     const wastageBase =
       chargePricePerGram !== undefined
         ? comp.weightInGrams * chargePricePerGram
         : subtotal;
-    metalWastageTotal += resolveCharge(comp.wastageCharges, wastageBase);
+    metalWastageTotal += resolveCharge(comp.wastageCharges, wastageBase, comp.weightInGrams);
 
     // Track the charge-variant metal total for making charge calculation
     chargeBaseMetalTotal +=
@@ -89,14 +91,15 @@ export function calculateProductPrice(
   let gemstoneWastageTotal = 0;
   const gemstoneTotal = input.gemstoneComposition.reduce((sum, comp) => {
     const subtotal = comp.weightInCarats * comp.quantity * comp.pricePerCarat;
-    gemstoneWastageTotal += resolveCharge(comp.wastageCharges, subtotal);
+    gemstoneWastageTotal += resolveCharge(comp.wastageCharges, subtotal, comp.weightInCarats * comp.quantity);
     return sum + subtotal;
   }, 0);
 
   // 3. Making charges — based on charge-variant metal total
   const makingChargeAmount = resolveCharge(
     input.makingCharges,
-    chargeBaseMetalTotal
+    chargeBaseMetalTotal,
+    totalMetalWeight
   );
 
   // 4. Wastage — per-component if present, otherwise fall back to legacy global
@@ -106,7 +109,7 @@ export function calculateProductPrice(
 
   const wastageChargeAmount = hasPerComponentWastage
     ? metalWastageTotal + gemstoneWastageTotal
-    : resolveCharge(input.wastageCharges, chargeBaseMetalTotal);
+    : resolveCharge(input.wastageCharges, chargeBaseMetalTotal, totalMetalWeight);
 
   // 5. Other charges total
   const otherChargesTotal = input.otherCharges.reduce(
@@ -141,16 +144,21 @@ export function calculateProductPrice(
 }
 
 /**
- * Resolve a charge (fixed or percentage) against a base amount.
+ * Resolve a charge (fixed, percentage, or per_gram) against a base amount.
  * Returns 0 when charges are undefined or value is 0.
+ * @param weightInUnits - weight in grams (metals) or carats (gemstones), used for per_gram type
  */
 function resolveCharge(
   charges: ICharges | undefined | null,
-  baseAmount: number
+  baseAmount: number,
+  weightInUnits?: number
 ): number {
   if (!charges || charges.value === 0) return 0;
   if (charges.type === "percentage") {
     return baseAmount * (charges.value / 100);
+  }
+  if (charges.type === "per_gram") {
+    return charges.value * (weightInUnits ?? 0);
   }
   return charges.value;
 }

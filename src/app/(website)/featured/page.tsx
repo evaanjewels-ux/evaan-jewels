@@ -21,6 +21,7 @@ interface ProductCardData {
   isOutOfStock: boolean;
   isFeatured: boolean;
   metalComposition: { variantName: string; weightInGrams: number }[];
+  videos?: { type: "upload" | "external"; url: string; thumbnailUrl?: string }[];
 }
 
 export const metadata = createMetadata({

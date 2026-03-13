@@ -463,7 +463,7 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
             pricePerGram: (m.pricePerGram as number) || 0,
             wastageCharges: mWastage
               ? {
-                  type: (mWastage.type as "fixed" | "percentage") || "percentage",
+                  type: (mWastage.type as "fixed" | "percentage" | "per_gram") || "percentage",
                   value: (mWastage.value as number) || 0,
                 }
               : { type: "percentage" as const, value: 0 },
@@ -492,7 +492,7 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
             pricePerCarat: (g.pricePerCarat as number) || 0,
             wastageCharges: gWastage
               ? {
-                  type: (gWastage.type as "fixed" | "percentage") || "percentage",
+                  type: (gWastage.type as "fixed" | "percentage" | "per_gram") || "percentage",
                   value: (gWastage.value as number) || 0,
                 }
               : { type: "percentage" as const, value: 0 },
@@ -503,7 +503,7 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
     },
     charges: {
       makingCharges: {
-        type: (makingCharges.type as "fixed" | "percentage") || "fixed",
+        type: (makingCharges.type as "fixed" | "percentage" | "per_gram") || "fixed",
         value: (makingCharges.value as number) || 0,
       },
       gstPercentage: (data.gstPercentage as number) ?? 3,

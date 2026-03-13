@@ -34,6 +34,7 @@ export const GEMSTONE_UNITS = [
 export const CHARGE_TYPES = [
   { value: "fixed", label: "Fixed (₹)" },
   { value: "percentage", label: "Percentage (%)" },
+  { value: "per_gram", label: "Per Gram (₹/g)" },
 ] as const;
 
 export const ITEMS_PER_PAGE = 12;
