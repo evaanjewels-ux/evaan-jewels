@@ -101,6 +101,17 @@ export const productCreateSchema = z.object({
   chargeBasedOnVariant: chargeBasedOnVariantSchema,
   hallmarkCertified: z.boolean().optional().default(false),
 
+  // Which metal variants to show on the product page for variant-switching
+  displayVariants: z
+    .array(
+      z.object({
+        metal: z.string().min(1),
+        variantIds: z.array(z.string().min(1)).default([]),
+      })
+    )
+    .optional()
+    .default([]),
+
   grossWeight: z.number().min(0).optional().default(0),
   netWeight: z.number().min(0).optional().default(0),
   size: z.string().optional(),

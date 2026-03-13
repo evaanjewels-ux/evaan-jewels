@@ -8,7 +8,7 @@ import { Check } from "lucide-react";
 import { Stepper } from "@/components/ui/Stepper";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { StepBasicInfo, type BasicInfoData } from "./StepBasicInfo";
-import { StepComposition, type CompositionData, type MetalEntry, type GemstoneEntry } from "./StepComposition";
+import { StepComposition, type CompositionData, type MetalEntry, type GemstoneEntry, type DisplayVariantEntry } from "./StepComposition";
 import { StepCharges, type ChargesData } from "./StepCharges";
 import { StepImages, type ImagesData, type ColorImageEntry, type VideoEntry } from "./StepImages";
 import { StepReview } from "./StepReview";
@@ -227,6 +227,9 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
 
         chargeBasedOnVariant: formData.charges.chargeBasedOnVariant || undefined,
 
+        displayVariants: formData.composition.displayVariants
+          .filter((dv: DisplayVariantEntry) => dv.metal && dv.variantIds.length > 0),
+
         sizes: formData.basic.sizes || [],
         colors: formData.basic.colors || [],
 
@@ -398,6 +401,7 @@ function getDefaultFormData(): ProductFormData {
     composition: {
       metals: [],
       gemstones: [],
+      displayVariants: [],
     },
     charges: {
       makingCharges: { type: "fixed", value: 0 },
@@ -500,6 +504,12 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
         })
         // Drop any composition entries whose gemstone ref was deleted from the DB
         .filter((g) => g.gemstoneId !== ""),
+      displayVariants: ((data.displayVariants as Array<Record<string, unknown>>) || []).map((dv) => ({
+        metal: (typeof dv.metal === "object" && dv.metal !== null
+          ? (dv.metal as Record<string, unknown>)._id as string
+          : dv.metal as string) || "",
+        variantIds: ((dv.variantIds as string[]) || []).map(String),
+      })),
     },
     charges: {
       makingCharges: {

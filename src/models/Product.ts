@@ -228,6 +228,19 @@ const ProductSchema = new Schema<IProduct>(
       _id: false,
     },
 
+    // Which metal variants to show on the product page for variant-switching
+    // Each entry maps a metal to the variant IDs the admin wants to display
+    displayVariants: {
+      type: [
+        {
+          metal: { type: Schema.Types.ObjectId, ref: "Metal", required: true },
+          variantIds: [{ type: Schema.Types.ObjectId }],
+          _id: false,
+        },
+      ],
+      default: [],
+    },
+
     // Hallmark
     hallmarkCertified: { type: Boolean, default: false },
 

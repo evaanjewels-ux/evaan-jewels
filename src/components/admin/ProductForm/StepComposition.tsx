@@ -32,9 +32,15 @@ export interface GemstoneEntry {
   wastageCharges: { type: "fixed" | "percentage" | "per_gram"; value: number };
 }
 
+export interface DisplayVariantEntry {
+  metal: string;       // metalId
+  variantIds: string[];
+}
+
 export interface CompositionData {
   metals: MetalEntry[];
   gemstones: GemstoneEntry[];
+  displayVariants: DisplayVariantEntry[];
 }
 
 interface MetalApiData {
@@ -141,8 +147,15 @@ export function StepComposition({
   };
 
   const removeMetal = (index: number) => {
+    const removedMetalId = data.metals[index]?.metalId;
     setMetalWeightRaw((prev) => prev.filter((_, i) => i !== index));
-    onChange({ ...data, metals: data.metals.filter((_, i) => i !== index) });
+    const newMetals = data.metals.filter((_, i) => i !== index);
+    // Clean up displayVariants if no other metal entry uses this metalId
+    const stillUsed = newMetals.some((m) => m.metalId === removedMetalId);
+    const newDV = stillUsed
+      ? data.displayVariants
+      : data.displayVariants.filter((dv) => dv.metal !== removedMetalId);
+    onChange({ ...data, metals: newMetals, displayVariants: newDV });
   };
 
   const onMetalSelect = (index: number, metalId: string) => {
@@ -154,6 +167,20 @@ export function StepComposition({
       variantName: "",
       pricePerGram: 0,
     });
+    // Initialize displayVariants entry for this metal if not present
+    if (metalId && !data.displayVariants.some((dv) => dv.metal === metalId)) {
+      // Default: include all variants
+      onChange({
+        ...data,
+        metals: data.metals.map((m, i) =>
+          i === index ? { ...m, metalId, metalName: metal?.name || "", variantId: "", variantName: "", pricePerGram: 0 } : m
+        ),
+        displayVariants: [
+          ...data.displayVariants,
+          { metal: metalId, variantIds: metal?.variants.map((v) => v._id) || [] },
+        ],
+      });
+    }
   };
 
   const onMetalVariantSelect = (index: number, variantId: string) => {
@@ -164,6 +191,45 @@ export function StepComposition({
       variantName: variant?.name || "",
       pricePerGram: variant?.pricePerGram || 0,
     });
+    // Auto-include the selected variant in displayVariants
+    const metalId = data.metals[index].metalId;
+    if (metalId && variantId) {
+      const dvIndex = data.displayVariants.findIndex((dv) => dv.metal === metalId);
+      if (dvIndex >= 0) {
+        const existing = data.displayVariants[dvIndex];
+        if (!existing.variantIds.includes(variantId)) {
+          const updated = [...data.displayVariants];
+          updated[dvIndex] = { ...existing, variantIds: [...existing.variantIds, variantId] };
+          onChange({
+            ...data,
+            metals: data.metals.map((m, i) =>
+              i === index ? { ...m, variantId, variantName: variant?.name || "", pricePerGram: variant?.pricePerGram || 0 } : m
+            ),
+            displayVariants: updated,
+          });
+        }
+      }
+    }
+  };
+
+  // Toggle a variant in displayVariants for a given metal
+  const toggleDisplayVariant = (metalId: string, variantId: string) => {
+    const dvIndex = data.displayVariants.findIndex((dv) => dv.metal === metalId);
+    if (dvIndex < 0) return;
+    const existing = data.displayVariants[dvIndex];
+    // Don't allow unchecking the currently selected composition variant
+    const compositionVariantIds = data.metals
+      .filter((m) => m.metalId === metalId)
+      .map((m) => m.variantId);
+    if (compositionVariantIds.includes(variantId) && existing.variantIds.includes(variantId)) {
+      return; // Can't uncheck the variant used in composition
+    }
+    const newIds = existing.variantIds.includes(variantId)
+      ? existing.variantIds.filter((id) => id !== variantId)
+      : [...existing.variantIds, variantId];
+    const updated = [...data.displayVariants];
+    updated[dvIndex] = { ...existing, variantIds: newIds };
+    onChange({ ...data, displayVariants: updated });
   };
 
   // Gemstone handlers
@@ -340,6 +406,79 @@ export function StepComposition({
                       </div>
                     </div>
                   </div>
+
+                  {/* Display Variants — choose which variants customers see */}
+                  {selectedMetal && selectedMetal.variants.length > 1 && entry.variantId && (
+                    <div className="mt-3 pt-3 border-t border-charcoal-100">
+                      <p className="text-xs font-medium text-charcoal-500 mb-2">
+                        Show these variants on product page:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedMetal.variants.map((v) => {
+                          const dvEntry = data.displayVariants.find(
+                            (dv) => dv.metal === entry.metalId
+                          );
+                          const isChecked = dvEntry
+                            ? dvEntry.variantIds.includes(v._id)
+                            : false;
+                          const isCompositionVariant = data.metals.some(
+                            (m) => m.metalId === entry.metalId && m.variantId === v._id
+                          );
+                          return (
+                            <label
+                              key={v._id}
+                              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium cursor-pointer transition-all ${
+                                isChecked
+                                  ? "border-gold-400 bg-gold-50 text-gold-700"
+                                  : "border-charcoal-200 bg-white text-charcoal-500 hover:border-charcoal-300"
+                              } ${isCompositionVariant ? "opacity-90" : ""}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={isCompositionVariant && isChecked}
+                                onChange={() =>
+                                  toggleDisplayVariant(entry.metalId, v._id)
+                                }
+                                className="sr-only"
+                              />
+                              <span
+                                className={`flex h-3.5 w-3.5 items-center justify-center rounded border ${
+                                  isChecked
+                                    ? "border-gold-500 bg-gold-500 text-white"
+                                    : "border-charcoal-300"
+                                }`}
+                              >
+                                {isChecked && (
+                                  <svg
+                                    className="h-2.5 w-2.5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={3}
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M5 13l4 4L19 7"
+                                    />
+                                  </svg>
+                                )}
+                              </span>
+                              {v.name} ({v.purity}%)
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {data.metals.some(
+                        (m) => m.metalId === entry.metalId && m.variantId
+                      ) && (
+                        <p className="text-[10px] text-charcoal-400 mt-1">
+                          The variant used in composition is always included.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })

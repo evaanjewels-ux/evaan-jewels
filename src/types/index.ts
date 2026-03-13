@@ -165,6 +165,10 @@ export interface IProduct {
     variantId: string;
     variantName: string;
   };
+
+  /** Which metal variants to show on the product page for variant-switching */
+  displayVariants: { metal: Types.ObjectId | string; variantIds: (Types.ObjectId | string)[] }[];
+
   hallmarkCertified: boolean;
 
   metaTitle?: string;

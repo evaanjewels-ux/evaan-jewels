@@ -125,10 +125,28 @@ async function getProductData(slug: string, retries = 2) {
               .lean()
           : [];
 
+      // Filter metal variants based on displayVariants (admin-selected variants to show)
+      const displayVariants = (product.displayVariants as { metal: unknown; variantIds: unknown[] }[]) || [];
+      const filteredMetals = metals.map((m) => {
+        const dvEntry = displayVariants.find(
+          (dv) => String(dv.metal) === String(m._id)
+        );
+        if (dvEntry && dvEntry.variantIds.length > 0) {
+          const allowedIds = new Set(dvEntry.variantIds.map(String));
+          return {
+            ...m,
+            variants: m.variants.filter((v: { _id: unknown }) =>
+              allowedIds.has(String(v._id))
+            ),
+          };
+        }
+        return m;
+      });
+
       return {
         product: JSON.parse(JSON.stringify(product)),
         relatedProducts: JSON.parse(JSON.stringify(relatedProducts)),
-        availableMetals: JSON.parse(JSON.stringify(metals)),
+        availableMetals: JSON.parse(JSON.stringify(filteredMetals)),
       };
     } catch (err) {
       console.error(`getProductData attempt ${attempt + 1} failed:`, err);
