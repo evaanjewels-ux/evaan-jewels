@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRecentlyViewed } from "@/components/providers/RecentlyViewedProvider";
@@ -12,6 +13,13 @@ interface RecentlyViewedProps {
 
 export function RecentlyViewed({ excludeProductId }: RecentlyViewedProps) {
   const { items } = useRecentlyViewed();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
 
   const filtered = excludeProductId
     ? items.filter((i) => i.productId !== excludeProductId)

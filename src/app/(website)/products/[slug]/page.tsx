@@ -4,6 +4,7 @@ import Link from "next/link";
 import dbConnect from "@/lib/db";
 import Product from "@/models/Product";
 import Metal from "@/models/Metal";
+import Gemstone from "@/models/Gemstone";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { Badge } from "@/components/ui/Badge";
 import { ProductDetailClient } from "@/components/website/ProductDetailClient";
@@ -126,13 +127,13 @@ async function getProductData(slug: string, retries = 2) {
           : [];
 
       // Filter metal variants based on displayVariants (admin-selected variants to show)
-      const displayVariants = (product.displayVariants as { metal: unknown; variantIds: unknown[] }[]) || [];
+      const displayVariants = (product.displayVariants as { metal: unknown; variants: { variantId: unknown; weightInGrams: number }[] }[]) || [];
       const filteredMetals = metals.map((m) => {
         const dvEntry = displayVariants.find(
           (dv) => String(dv.metal) === String(m._id)
         );
-        if (dvEntry && dvEntry.variantIds.length > 0) {
-          const allowedIds = new Set(dvEntry.variantIds.map(String));
+        if (dvEntry && dvEntry.variants.length > 0) {
+          const allowedIds = new Set(dvEntry.variants.map((v) => String(v.variantId)));
           return {
             ...m,
             variants: m.variants.filter((v: { _id: unknown }) =>
@@ -143,10 +144,36 @@ async function getProductData(slug: string, retries = 2) {
         return m;
       });
 
+      // Build variant weight map (variantId -> weightInGrams) for the client
+      const variantWeightMap: Record<string, number> = {};
+      for (const dv of displayVariants) {
+        for (const v of dv.variants) {
+          variantWeightMap[String(v.variantId)] = v.weightInGrams;
+        }
+      }
+
+      // Fetch gemstones used in displayGemstones for gemstone-switching
+      const displayGemstones = (product.displayGemstones as { gemstone: unknown; variantId: unknown; variantName: string; weightInCarats: number; quantity: number; pricePerCarat: number }[]) || [];
+      const gemstoneIds = [
+        ...new Set([
+          ...(product.gemstoneComposition || []).map((gc: { gemstone: unknown }) => String(gc.gemstone)),
+          ...displayGemstones.map((dg) => String(dg.gemstone)),
+        ]),
+      ];
+      const gemstoneData =
+        gemstoneIds.length > 0
+          ? await Gemstone.find({ _id: { $in: gemstoneIds }, isActive: true })
+              .select("name variants")
+              .lean()
+          : [];
+
       return {
         product: JSON.parse(JSON.stringify(product)),
         relatedProducts: JSON.parse(JSON.stringify(relatedProducts)),
         availableMetals: JSON.parse(JSON.stringify(filteredMetals)),
+        variantWeightMap: JSON.parse(JSON.stringify(variantWeightMap)),
+        availableGemstones: JSON.parse(JSON.stringify(gemstoneData)),
+        displayGemstones: JSON.parse(JSON.stringify(displayGemstones)),
       };
     } catch (err) {
       console.error(`getProductData attempt ${attempt + 1} failed:`, err);
@@ -163,7 +190,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   if (!data) notFound();
 
-  const { product, relatedProducts, availableMetals } = data;
+  const { product, relatedProducts, availableMetals, variantWeightMap, availableGemstones, displayGemstones } = data;
   const category = product.category as { name: string; slug: string } | null;
 
   const whatsappMessage = encodeURIComponent(
@@ -297,6 +324,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
               chargeBasedOnVariant: product.chargeBasedOnVariant || undefined,
             }}
             availableMetals={availableMetals}
+            variantWeightMap={variantWeightMap || {}}
+            availableGemstones={availableGemstones || []}
+            displayGemstoneOptions={displayGemstones || []}
             whatsappMessage={whatsappMessage}
           />
         </div>

@@ -24,6 +24,29 @@ interface AvailableMetal {
   variants: AvailableVariant[];
 }
 
+/* ─── Gemstone variant info from the API ─── */
+interface AvailableGemstoneVariant {
+  _id: string;
+  name: string;
+  pricePerCarat: number;
+}
+
+interface AvailableGemstone {
+  _id: string;
+  name: string;
+  variants: AvailableGemstoneVariant[];
+}
+
+/* ─── Display gemstone option from the server ─── */
+interface DisplayGemstoneOption {
+  gemstone: string;
+  variantId: string;
+  variantName: string;
+  weightInCarats: number;
+  quantity: number;
+  pricePerCarat: number;
+}
+
 /* ─── Product data passed from the server page ─── */
 interface ProductData {
   _id: string;
@@ -87,6 +110,9 @@ interface ProductData {
 interface ProductDetailClientProps {
   product: ProductData;
   availableMetals: AvailableMetal[];
+  variantWeightMap: Record<string, number>;
+  availableGemstones: AvailableGemstone[];
+  displayGemstoneOptions: DisplayGemstoneOption[];
   whatsappMessage: string;
 }
 
@@ -100,6 +126,9 @@ function getMetalId(metalRef: string | { _id: string; name: string }): string {
 export function ProductDetailClient({
   product,
   availableMetals,
+  variantWeightMap,
+  availableGemstones,
+  displayGemstoneOptions,
   whatsappMessage,
 }: ProductDetailClientProps) {
   const { addItem } = useCart();
@@ -120,19 +149,25 @@ export function ProductDetailClient({
   // For each metal in the composition, track the selected variant
   // Default: the variant already used in the product's composition
   const [selectedVariants, setSelectedVariants] = useState<
-    Record<string, { variantId: string; variantName: string; pricePerGram: number }>
+    Record<string, { variantId: string; variantName: string; pricePerGram: number; weightInGrams: number }>
   >(() => {
-    const initial: Record<string, { variantId: string; variantName: string; pricePerGram: number }> = {};
+    const initial: Record<string, { variantId: string; variantName: string; pricePerGram: number; weightInGrams: number }> = {};
     product.metalComposition.forEach((mc) => {
       const metalId = getMetalId(mc.metal);
       initial[metalId] = {
         variantId: mc.variantId,
         variantName: mc.variantName,
         pricePerGram: mc.pricePerGram,
+        weightInGrams: mc.weightInGrams,
       };
     });
     return initial;
   });
+
+  // ─── Gemstone selection state ──────────────
+  // null means use the default gemstoneComposition
+  const hasGemstoneOptions = displayGemstoneOptions.length > 0;
+  const [selectedGemstone, setSelectedGemstone] = useState<DisplayGemstoneOption | null>(null);
 
   // ─── Compute metals that have switchable variants ──────
   const switchableMetals = useMemo(() => {
@@ -160,32 +195,45 @@ export function ProductDetailClient({
 
   // ─── Price recalculation ────────────────────────
   const calculatedPrices = useMemo(() => {
-    // Build updated metalComposition with selected variant prices
+    // Build updated metalComposition with selected variant prices and weights
     const updatedMetal: IMetalComposition[] = product.metalComposition.map((mc) => {
       const metalId = getMetalId(mc.metal);
       const sel = selectedVariants[metalId];
       const pricePerGram = sel ? sel.pricePerGram : mc.pricePerGram;
+      const weightInGrams = sel ? sel.weightInGrams : mc.weightInGrams;
       return {
         metal: metalId as unknown as import("mongoose").Types.ObjectId,
         variantId: (sel?.variantId || mc.variantId) as unknown as import("mongoose").Types.ObjectId,
         variantName: sel?.variantName || mc.variantName,
-        weightInGrams: mc.weightInGrams,
+        weightInGrams,
         pricePerGram,
-        subtotal: mc.weightInGrams * pricePerGram,
+        subtotal: weightInGrams * pricePerGram,
         wastageCharges: mc.wastageCharges,
       };
     });
 
-    const gemComp: IGemstoneComposition[] = product.gemstoneComposition.map((gc) => ({
-      gemstone: (typeof gc.gemstone === "object" ? gc.gemstone._id : gc.gemstone) as unknown as import("mongoose").Types.ObjectId,
-      variantId: gc.variantId as unknown as import("mongoose").Types.ObjectId,
-      variantName: gc.variantName,
-      weightInCarats: gc.weightInCarats,
-      quantity: gc.quantity,
-      pricePerCarat: gc.pricePerCarat,
-      subtotal: gc.weightInCarats * gc.quantity * gc.pricePerCarat,
-      wastageCharges: gc.wastageCharges,
-    }));
+    // Use selected gemstone or default composition
+    const gemComp: IGemstoneComposition[] = selectedGemstone
+      ? [{
+          gemstone: selectedGemstone.gemstone as unknown as import("mongoose").Types.ObjectId,
+          variantId: selectedGemstone.variantId as unknown as import("mongoose").Types.ObjectId,
+          variantName: selectedGemstone.variantName,
+          weightInCarats: selectedGemstone.weightInCarats,
+          quantity: selectedGemstone.quantity,
+          pricePerCarat: selectedGemstone.pricePerCarat,
+          subtotal: selectedGemstone.weightInCarats * selectedGemstone.quantity * selectedGemstone.pricePerCarat,
+          wastageCharges: product.gemstoneComposition[0]?.wastageCharges,
+        }]
+      : product.gemstoneComposition.map((gc) => ({
+          gemstone: (typeof gc.gemstone === "object" ? gc.gemstone._id : gc.gemstone) as unknown as import("mongoose").Types.ObjectId,
+          variantId: gc.variantId as unknown as import("mongoose").Types.ObjectId,
+          variantName: gc.variantName,
+          weightInCarats: gc.weightInCarats,
+          quantity: gc.quantity,
+          pricePerCarat: gc.pricePerCarat,
+          subtotal: gc.weightInCarats * gc.quantity * gc.pricePerCarat,
+          wastageCharges: gc.wastageCharges,
+        }));
 
     return calculateProductPrice({
       metalComposition: updatedMetal,
@@ -197,7 +245,6 @@ export function ProductDetailClient({
       chargeBasedOnVariant: product.chargeBasedOnVariant
         ? {
             ...product.chargeBasedOnVariant,
-            // Pass the selected variant's pricePerGram if it's in the available metals
             pricePerGram: (() => {
               const m = availableMetals.find(
                 (am) => am._id === product.chargeBasedOnVariant!.metalId
@@ -209,7 +256,7 @@ export function ProductDetailClient({
           }
         : undefined,
     });
-  }, [product, selectedVariants, availableMetals]);
+  }, [product, selectedVariants, selectedGemstone, availableMetals]);
 
   // ─── Dynamic metal composition for display ─────
   const displayMetalComposition = useMemo(() => {
@@ -217,14 +264,35 @@ export function ProductDetailClient({
       const metalId = getMetalId(mc.metal);
       const sel = selectedVariants[metalId];
       const pricePerGram = sel ? sel.pricePerGram : mc.pricePerGram;
+      const weightInGrams = sel ? sel.weightInGrams : mc.weightInGrams;
       return {
         variantName: sel?.variantName || mc.variantName,
-        weightInGrams: mc.weightInGrams,
+        weightInGrams,
         pricePerGram,
-        subtotal: mc.weightInGrams * pricePerGram,
+        subtotal: weightInGrams * pricePerGram,
       };
     });
   }, [product.metalComposition, selectedVariants]);
+
+  // ─── Dynamic gemstone composition for display ─────
+  const displayGemstoneComposition = useMemo(() => {
+    if (selectedGemstone) {
+      return [{
+        variantName: selectedGemstone.variantName,
+        weightInCarats: selectedGemstone.weightInCarats,
+        quantity: selectedGemstone.quantity,
+        pricePerCarat: selectedGemstone.pricePerCarat,
+        subtotal: selectedGemstone.weightInCarats * selectedGemstone.quantity * selectedGemstone.pricePerCarat,
+      }];
+    }
+    return product.gemstoneComposition.map((gc) => ({
+      variantName: gc.variantName,
+      weightInCarats: gc.weightInCarats,
+      quantity: gc.quantity,
+      pricePerCarat: gc.pricePerCarat,
+      subtotal: gc.weightInCarats * gc.quantity * gc.pricePerCarat,
+    }));
+  }, [product.gemstoneComposition, selectedGemstone]);
 
   // ─── Gallery images (filtered by color) ─────────
   const galleryImages = useMemo(() => {
@@ -245,16 +313,38 @@ export function ProductDetailClient({
   // ─── Variant change handler ─────────────────────
   const handleVariantChange = useCallback(
     (metalId: string, variant: AvailableVariant) => {
+      // Get weight for this variant from the weight map, fall back to composition weight
+      const mc = product.metalComposition.find((c) => getMetalId(c.metal) === metalId);
+      const weight = variantWeightMap[variant._id] ?? mc?.weightInGrams ?? 0;
       setSelectedVariants((prev) => ({
         ...prev,
         [metalId]: {
           variantId: variant._id,
           variantName: variant.name,
           pricePerGram: variant.pricePerGram,
+          weightInGrams: weight,
         },
       }));
     },
-    []
+    [variantWeightMap, product.metalComposition]
+  );
+
+  // ─── Gemstone change handler ─────────────────────
+  const handleGemstoneChange = useCallback(
+    (option: DisplayGemstoneOption | null) => {
+      if (!option) {
+        setSelectedGemstone(null);
+        return;
+      }
+      // Look up latest pricePerCarat from availableGemstones
+      const gemData = availableGemstones.find((g) => g._id === option.gemstone);
+      const varData = gemData?.variants.find((v) => v._id === option.variantId);
+      setSelectedGemstone({
+        ...option,
+        pricePerCarat: varData?.pricePerCarat ?? option.pricePerCarat,
+      });
+    },
+    [availableGemstones]
   );
 
   // ─── Add to cart ────────────────────────────────
@@ -269,8 +359,11 @@ export function ProductDetailClient({
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([, v]) => v.variantId)
       .join("-");
+    const gemstoneKey = selectedGemstone
+      ? `${selectedGemstone.gemstone}:${selectedGemstone.variantId}`
+      : "default";
 
-    const cartItemId = `${product._id}|${selectedSize ?? ""}|${selectedColor ?? ""}|${variantKey}`;
+    const cartItemId = `${product._id}|${selectedSize ?? ""}|${selectedColor ?? ""}|${variantKey}|${gemstoneKey}`;
 
     const item: ICartItem = {
       cartItemId,
@@ -291,19 +384,29 @@ export function ProductDetailClient({
       selectedMetalVariants: Object.entries(selectedVariants).map(
         ([metalId, v]) => {
           const metalData = availableMetals.find((m) => m._id === metalId);
-          const mc = product.metalComposition.find(
-            (c) => getMetalId(c.metal) === metalId
-          );
           return {
             metalId,
             metalName: metalData?.name || "",
             variantId: v.variantId,
             variantName: v.variantName,
             pricePerGram: v.pricePerGram,
-            weightInGrams: mc?.weightInGrams || 0,
+            weightInGrams: v.weightInGrams,
           };
         }
       ),
+      selectedGemstone: selectedGemstone
+        ? {
+            gemstoneId: selectedGemstone.gemstone,
+            gemstoneName:
+              availableGemstones.find((g) => g._id === selectedGemstone.gemstone)
+                ?.name || "",
+            variantId: selectedGemstone.variantId,
+            variantName: selectedGemstone.variantName,
+            weightInCarats: selectedGemstone.weightInCarats,
+            quantity: selectedGemstone.quantity,
+            pricePerCarat: selectedGemstone.pricePerCarat,
+          }
+        : undefined,
     };
 
     addItem(item);
@@ -337,13 +440,7 @@ export function ProductDetailClient({
           <PriceBreakdown
             product={{
               metalComposition: displayMetalComposition,
-              gemstoneComposition: product.gemstoneComposition.map((gc) => ({
-                variantName: gc.variantName,
-                weightInCarats: gc.weightInCarats,
-                quantity: gc.quantity,
-                pricePerCarat: gc.pricePerCarat,
-                subtotal: gc.weightInCarats * gc.quantity * gc.pricePerCarat,
-              })),
+              gemstoneComposition: displayGemstoneComposition,
               metalTotal: calculatedPrices.metalTotal,
               gemstoneTotal: calculatedPrices.gemstoneTotal,
               makingChargeAmount: calculatedPrices.makingChargeAmount,
@@ -396,6 +493,59 @@ export function ProductDetailClient({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Gemstone Switcher */}
+        {hasGemstoneOptions && (
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-charcoal-600 mb-2">
+              Gemstone
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {/* Default gemstone option */}
+              {product.gemstoneComposition.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleGemstoneChange(null)}
+                  className={`rounded-lg border px-3.5 py-2 text-sm font-medium transition-all duration-150 ${
+                    selectedGemstone === null
+                      ? "border-gold-500 bg-gold-500 text-white shadow-sm"
+                      : "border-charcoal-200 bg-white text-charcoal-700 hover:border-gold-400 hover:bg-gold-50"
+                  }`}
+                >
+                  {product.gemstoneComposition[0].variantName}
+                  <span className="ml-1.5 text-xs opacity-70">
+                    ({product.gemstoneComposition[0].weightInCarats}ct)
+                  </span>
+                </button>
+              )}
+              {/* Alternative gemstone options */}
+              {displayGemstoneOptions.map((option, idx) => {
+                const gemData = availableGemstones.find((g) => g._id === option.gemstone);
+                const isActive = selectedGemstone?.variantId === option.variantId && selectedGemstone?.gemstone === option.gemstone;
+                return (
+                  <button
+                    key={`${option.gemstone}-${option.variantId}-${idx}`}
+                    type="button"
+                    onClick={() => handleGemstoneChange(option)}
+                    className={`rounded-lg border px-3.5 py-2 text-sm font-medium transition-all duration-150 ${
+                      isActive
+                        ? "border-gold-500 bg-gold-500 text-white shadow-sm"
+                        : "border-charcoal-200 bg-white text-charcoal-700 hover:border-gold-400 hover:bg-gold-50"
+                    }`}
+                  >
+                    {gemData?.name || option.variantName}
+                    {gemData?.name && gemData.name !== option.variantName && (
+                      <span className="ml-1 text-xs opacity-70">({option.variantName})</span>
+                    )}
+                    <span className="ml-1.5 text-xs opacity-70">
+                      ({option.weightInCarats}ct)
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 

@@ -101,20 +101,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const itemTotal = product.totalPrice * item.quantity;
+      const itemPrice = item.customPrice ?? product.totalPrice;
+      const itemTotal = itemPrice * item.quantity;
       subtotal += itemTotal;
 
       orderItems.push({
         product: product._id,
         quantity: item.quantity,
-        price: product.totalPrice,
+        price: itemPrice,
         total: itemTotal,
         productSnapshot: {
           name: product.name,
           productCode: product.productCode,
           slug: product.slug,
           thumbnailImage: product.thumbnailImage,
-          totalPrice: product.totalPrice,
+          totalPrice: itemPrice,
           metalComposition: product.metalComposition?.map((m) => ({
             variantName: m.variantName,
             weightInGrams: m.weightInGrams,
@@ -123,6 +124,10 @@ export async function POST(request: NextRequest) {
             typeof product.category === "object" && product.category !== null
               ? (product.category as unknown as { name: string }).name
               : "",
+          selectedSize: item.selectedSize,
+          selectedColor: item.selectedColor,
+          selectedMetalVariants: item.selectedMetalVariants,
+          selectedGemstone: item.selectedGemstone,
         },
       });
     }

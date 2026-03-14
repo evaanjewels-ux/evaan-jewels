@@ -106,7 +106,27 @@ export const productCreateSchema = z.object({
     .array(
       z.object({
         metal: z.string().min(1),
-        variantIds: z.array(z.string().min(1)).default([]),
+        variants: z.array(
+          z.object({
+            variantId: z.string().min(1),
+            weightInGrams: z.number().min(0),
+          })
+        ).default([]),
+      })
+    )
+    .optional()
+    .default([]),
+
+  // Which gemstone options to show on the product page for gemstone-switching
+  displayGemstones: z
+    .array(
+      z.object({
+        gemstone: z.string().min(1),
+        variantId: z.string().min(1),
+        variantName: z.string().min(1),
+        weightInCarats: z.number().min(0),
+        quantity: z.number().int().min(1).default(1),
+        pricePerCarat: z.number().min(0).optional().default(0),
       })
     )
     .optional()

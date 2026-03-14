@@ -229,12 +229,34 @@ const ProductSchema = new Schema<IProduct>(
     },
 
     // Which metal variants to show on the product page for variant-switching
-    // Each entry maps a metal to the variant IDs the admin wants to display
+    // Each entry maps a metal to the variants (with per-variant weight) the admin wants to display
     displayVariants: {
       type: [
         {
           metal: { type: Schema.Types.ObjectId, ref: "Metal", required: true },
-          variantIds: [{ type: Schema.Types.ObjectId }],
+          variants: [
+            {
+              variantId: { type: Schema.Types.ObjectId, required: true },
+              weightInGrams: { type: Number, required: true, min: 0 },
+              _id: false,
+            },
+          ],
+          _id: false,
+        },
+      ],
+      default: [],
+    },
+
+    // Which gemstone options to show on the product page for gemstone-switching
+    displayGemstones: {
+      type: [
+        {
+          gemstone: { type: Schema.Types.ObjectId, ref: "Gemstone", required: true },
+          variantId: { type: Schema.Types.ObjectId, required: true },
+          variantName: { type: String, required: true },
+          weightInCarats: { type: Number, required: true, min: 0 },
+          quantity: { type: Number, default: 1, min: 1 },
+          pricePerCarat: { type: Number, default: 0 },
           _id: false,
         },
       ],

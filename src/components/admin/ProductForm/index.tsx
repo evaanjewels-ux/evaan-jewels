@@ -8,7 +8,7 @@ import { Check } from "lucide-react";
 import { Stepper } from "@/components/ui/Stepper";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { StepBasicInfo, type BasicInfoData } from "./StepBasicInfo";
-import { StepComposition, type CompositionData, type MetalEntry, type GemstoneEntry, type DisplayVariantEntry } from "./StepComposition";
+import { StepComposition, type CompositionData, type MetalEntry, type GemstoneEntry, type DisplayVariantEntry, type DisplayGemstoneEntry } from "./StepComposition";
 import { StepCharges, type ChargesData } from "./StepCharges";
 import { StepImages, type ImagesData, type ColorImageEntry, type VideoEntry } from "./StepImages";
 import { StepReview } from "./StepReview";
@@ -228,7 +228,10 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         chargeBasedOnVariant: formData.charges.chargeBasedOnVariant || undefined,
 
         displayVariants: formData.composition.displayVariants
-          .filter((dv: DisplayVariantEntry) => dv.metal && dv.variantIds.length > 0),
+          .filter((dv: DisplayVariantEntry) => dv.metal && dv.variants.length > 0),
+
+        displayGemstones: formData.composition.displayGemstones
+          .filter((dg: DisplayGemstoneEntry) => dg.gemstone && dg.variantId),
 
         sizes: formData.basic.sizes || [],
         colors: formData.basic.colors || [],
@@ -402,6 +405,7 @@ function getDefaultFormData(): ProductFormData {
       metals: [],
       gemstones: [],
       displayVariants: [],
+      displayGemstones: [],
     },
     charges: {
       makingCharges: { type: "fixed", value: 0 },
@@ -508,7 +512,20 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
         metal: (typeof dv.metal === "object" && dv.metal !== null
           ? (dv.metal as Record<string, unknown>)._id as string
           : dv.metal as string) || "",
-        variantIds: ((dv.variantIds as string[]) || []).map(String),
+        variants: ((dv.variants as Array<Record<string, unknown>>) || (dv.variantIds as string[] || []).map((vid: string) => ({ variantId: String(vid), weightInGrams: 0 }))).map((v: Record<string, unknown>) => ({
+          variantId: String(v.variantId || ""),
+          weightInGrams: (v.weightInGrams as number) || 0,
+        })),
+      })),
+      displayGemstones: ((data.displayGemstones as Array<Record<string, unknown>>) || []).map((dg) => ({
+        gemstone: (typeof dg.gemstone === "object" && dg.gemstone !== null
+          ? (dg.gemstone as Record<string, unknown>)._id as string
+          : dg.gemstone as string) || "",
+        variantId: (dg.variantId as string) || "",
+        variantName: (dg.variantName as string) || "",
+        weightInCarats: (dg.weightInCarats as number) || 0,
+        quantity: (dg.quantity as number) || 1,
+        pricePerCarat: (dg.pricePerCarat as number) || 0,
       })),
     },
     charges: {

@@ -39,6 +39,21 @@ interface OrderDetail {
       thumbnailImage: string;
       price: number;
       slug: string;
+      selectedSize?: string;
+      selectedColor?: string;
+      selectedMetalVariants?: {
+        metalName: string;
+        variantName: string;
+        pricePerGram: number;
+        weightInGrams: number;
+      }[];
+      selectedGemstone?: {
+        gemstoneName: string;
+        variantName: string;
+        weightInCarats: number;
+        quantity: number;
+        pricePerCarat: number;
+      };
     };
     quantity: number;
     priceAtOrder: number;
@@ -376,7 +391,7 @@ export default function OrderDetailPage() {
             </h2>
             <ul className="mt-4 divide-y divide-charcoal-100">
               {order.items.map((item, i) => (
-                <li key={i} className="flex items-center gap-3 py-3">
+                <li key={i} className="flex gap-3 py-3">
                   <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-charcoal-50">
                     <Image
                       src={item.productSnapshot.thumbnailImage}
@@ -386,15 +401,48 @@ export default function OrderDetailPage() {
                       sizes="64px"
                     />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-charcoal-700">
                       {item.productSnapshot.name}
                     </p>
                     <p className="text-xs text-charcoal-400">
                       {item.productSnapshot.productCode} &middot; Qty: {item.quantity}
                     </p>
+                    {/* Customization details */}
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {item.productSnapshot.selectedSize && (
+                        <span className="inline-flex items-center rounded-full bg-charcoal-100 px-2 py-0.5 text-xs text-charcoal-600">
+                          Size: {item.productSnapshot.selectedSize}
+                        </span>
+                      )}
+                      {item.productSnapshot.selectedColor && (
+                        <span className="inline-flex items-center rounded-full bg-charcoal-100 px-2 py-0.5 text-xs text-charcoal-600">
+                          Colour: {item.productSnapshot.selectedColor}
+                        </span>
+                      )}
+                    </div>
+                    {item.productSnapshot.selectedMetalVariants && item.productSnapshot.selectedMetalVariants.length > 0 && (
+                      <div className="mt-1.5">
+                        <p className="text-xs font-medium text-charcoal-500 mb-1">Metal:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.productSnapshot.selectedMetalVariants.map((mv, j) => (
+                            <span key={j} className="inline-flex items-center rounded-full bg-gold-50 border border-gold-200 px-2 py-0.5 text-xs text-gold-700">
+                              {mv.metalName} · {mv.variantName} · {mv.weightInGrams}g
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {item.productSnapshot.selectedGemstone && (
+                      <div className="mt-1.5">
+                        <p className="text-xs font-medium text-charcoal-500 mb-1">Gemstone:</p>
+                        <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 px-2 py-0.5 text-xs text-rose-700">
+                          {item.productSnapshot.selectedGemstone.gemstoneName} · {item.productSnapshot.selectedGemstone.variantName} · {item.productSnapshot.selectedGemstone.weightInCarats}ct × {item.productSnapshot.selectedGemstone.quantity}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <PriceDisplay amount={item.priceAtOrder * item.quantity} size="sm" />
                     <p className="text-xs text-charcoal-400">
                       @ {formatCurrency(item.priceAtOrder)} each

@@ -15,6 +15,25 @@ export interface IOrderItem {
     totalPrice: number;
     metalComposition?: { variantName: string; weightInGrams: number }[];
     category?: string;
+    selectedSize?: string;
+    selectedColor?: string;
+    selectedMetalVariants?: {
+      metalId: string;
+      metalName: string;
+      variantId: string;
+      variantName: string;
+      pricePerGram: number;
+      weightInGrams: number;
+    }[];
+    selectedGemstone?: {
+      gemstoneId: string;
+      gemstoneName: string;
+      variantId: string;
+      variantName: string;
+      weightInCarats: number;
+      quantity: number;
+      pricePerCarat: number;
+    };
   };
   price: number;
   total: number;

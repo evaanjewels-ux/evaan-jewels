@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -30,6 +30,20 @@ interface StepBasicInfoProps {
   onNext: () => void;
 }
 
+const RING_SIZES = Array.from({ length: 21 }, (_, i) => String(i + 6)); // 6 to 26
+
+const COLOR_PRESETS = [
+  "Yellow Gold",
+  "Rose Gold",
+  "White Gold",
+  "Silver",
+  "Platinum",
+  "Black",
+  "Red",
+  "Blue",
+  "Green",
+];
+
 export function StepBasicInfo({
   data,
   onChange,
@@ -52,6 +66,14 @@ export function StepBasicInfo({
 
   const sizes = watch("sizes") || [];
   const colors = watch("colors") || [];
+  const selectedCategoryId = watch("category");
+
+  // Detect if the selected category is a ring category
+  const isRingCategory = useMemo(() => {
+    const cat = categories.find((c) => c._id === selectedCategoryId);
+    if (!cat) return false;
+    return cat.name.toLowerCase().includes("ring") || cat.slug.toLowerCase().includes("ring");
+  }, [selectedCategoryId, categories]);
 
   const addSize = () => {
     const trimmed = sizeInput.trim();
@@ -59,6 +81,14 @@ export function StepBasicInfo({
       const updated = [...sizes, trimmed];
       setValue("sizes", updated);
       setSizeInput("");
+    }
+  };
+
+  const toggleRingSize = (size: string) => {
+    if (sizes.includes(size)) {
+      setValue("sizes", sizes.filter((s) => s !== size));
+    } else {
+      setValue("sizes", [...sizes, size]);
     }
   };
 
@@ -73,6 +103,14 @@ export function StepBasicInfo({
       const updated = [...colors, trimmed];
       setValue("colors", updated);
       setColorInput("");
+    }
+  };
+
+  const toggleColorPreset = (color: string) => {
+    if (colors.includes(color)) {
+      setValue("colors", colors.filter((c) => c !== color));
+    } else {
+      setValue("colors", [...colors, color]);
     }
   };
 
@@ -133,9 +171,33 @@ export function StepBasicInfo({
             <label className="block text-sm font-medium text-charcoal-600 mb-1.5">
               Available Sizes
             </label>
+
+            {/* Ring size quick-select */}
+            {isRingCategory && (
+              <div className="mb-3">
+                <p className="text-xs text-charcoal-400 mb-2">Quick select ring sizes (6–26)</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {RING_SIZES.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => toggleRingSize(size)}
+                      className={`h-8 w-10 rounded-lg border text-xs font-medium transition-all ${
+                        sizes.includes(size)
+                          ? "border-gold-400 bg-gold-50 text-gold-700"
+                          : "border-charcoal-200 bg-white text-charcoal-500 hover:border-charcoal-300"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2 mb-2">
               <Input
-                placeholder="e.g., 6, 7, 8, Free Size, S, M, L"
+                placeholder={isRingCategory ? "Custom size (e.g., 6.5)" : "e.g., 6, 7, 8, Free Size, S, M, L"}
                 value={sizeInput}
                 onChange={(e) => setSizeInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -175,9 +237,31 @@ export function StepBasicInfo({
             <label className="block text-sm font-medium text-charcoal-600 mb-1.5">
               Available Colors
             </label>
+
+            {/* Color presets */}
+            <div className="mb-3">
+              <p className="text-xs text-charcoal-400 mb-2">Common options (click to add)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {COLOR_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => toggleColorPreset(preset)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                      colors.includes(preset)
+                        ? "border-gold-400 bg-gold-50 text-gold-700"
+                        : "border-charcoal-200 bg-white text-charcoal-500 hover:border-charcoal-300"
+                    }`}
+                  >
+                    {colors.includes(preset) ? <span className="mr-1">✓</span> : null}{preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex gap-2 mb-2">
               <Input
-                placeholder="e.g., Yellow Gold, Rose Gold, White"
+                placeholder="Custom color (e.g., Champagne Gold)"
                 value={colorInput}
                 onChange={(e) => setColorInput(e.target.value)}
                 onKeyDown={(e) => {

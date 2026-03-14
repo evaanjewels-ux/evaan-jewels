@@ -23,6 +23,32 @@ const shippingAddressSchema = z.object({
 const orderItemSchema = z.object({
   productId: z.string().min(1, "Product ID is required"),
   quantity: z.number().int().min(1).default(1),
+  customPrice: z.number().positive().optional(),
+  selectedSize: z.string().optional(),
+  selectedColor: z.string().optional(),
+  selectedMetalVariants: z
+    .array(
+      z.object({
+        metalId: z.string(),
+        metalName: z.string(),
+        variantId: z.string(),
+        variantName: z.string(),
+        pricePerGram: z.number(),
+        weightInGrams: z.number(),
+      })
+    )
+    .optional(),
+  selectedGemstone: z
+    .object({
+      gemstoneId: z.string(),
+      gemstoneName: z.string(),
+      variantId: z.string(),
+      variantName: z.string(),
+      weightInCarats: z.number(),
+      quantity: z.number(),
+      pricePerCarat: z.number(),
+    })
+    .optional(),
 });
 
 export const orderCreateSchema = z.object({

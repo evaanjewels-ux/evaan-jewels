@@ -34,13 +34,23 @@ export interface GemstoneEntry {
 
 export interface DisplayVariantEntry {
   metal: string;       // metalId
-  variantIds: string[];
+  variants: { variantId: string; weightInGrams: number }[];
+}
+
+export interface DisplayGemstoneEntry {
+  gemstone: string;    // gemstoneId
+  variantId: string;
+  variantName: string;
+  weightInCarats: number;
+  quantity: number;
+  pricePerCarat: number;
 }
 
 export interface CompositionData {
   metals: MetalEntry[];
   gemstones: GemstoneEntry[];
   displayVariants: DisplayVariantEntry[];
+  displayGemstones: DisplayGemstoneEntry[];
 }
 
 interface MetalApiData {
@@ -88,6 +98,9 @@ export function StepComposition({
   );
   const [gemstoneWeightRaw, setGemstoneWeightRaw] = useState<string[]>(() =>
     data.gemstones.map((g) => (g.weightInCarats > 0 ? String(g.weightInCarats) : ""))
+  );
+  const [dgWeightRaw, setDgWeightRaw] = useState<string[]>(() =>
+    data.displayGemstones.map((dg) => (dg.weightInCarats > 0 ? String(dg.weightInCarats) : ""))
   );
 
   useEffect(() => {
@@ -143,7 +156,24 @@ export function StepComposition({
   const updateMetal = (index: number, updates: Partial<MetalEntry>) => {
     const updated = [...data.metals];
     updated[index] = { ...updated[index], ...updates };
-    onChange({ ...data, metals: updated });
+    // Sync weight to displayVariants if it changed
+    let newDV = data.displayVariants;
+    if (updates.weightInGrams !== undefined && updated[index].metalId && updated[index].variantId) {
+      const dvIdx = data.displayVariants.findIndex((dv) => dv.metal === updated[index].metalId);
+      if (dvIdx >= 0) {
+        const dvCopy = [...data.displayVariants];
+        dvCopy[dvIdx] = {
+          ...dvCopy[dvIdx],
+          variants: dvCopy[dvIdx].variants.map((v) =>
+            v.variantId === updated[index].variantId
+              ? { ...v, weightInGrams: updates.weightInGrams! }
+              : v
+          ),
+        };
+        newDV = dvCopy;
+      }
+    }
+    onChange({ ...data, metals: updated, displayVariants: newDV });
   };
 
   const removeMetal = (index: number) => {
@@ -169,7 +199,7 @@ export function StepComposition({
     });
     // Initialize displayVariants entry for this metal if not present
     if (metalId && !data.displayVariants.some((dv) => dv.metal === metalId)) {
-      // Default: include all variants
+      // Default: include all variants with weight 0 (admin sets later)
       onChange({
         ...data,
         metals: data.metals.map((m, i) =>
@@ -177,7 +207,7 @@ export function StepComposition({
         ),
         displayVariants: [
           ...data.displayVariants,
-          { metal: metalId, variantIds: metal?.variants.map((v) => v._id) || [] },
+          { metal: metalId, variants: metal?.variants.map((v) => ({ variantId: v._id, weightInGrams: 0 })) || [] },
         ],
       });
     }
@@ -191,15 +221,18 @@ export function StepComposition({
       variantName: variant?.name || "",
       pricePerGram: variant?.pricePerGram || 0,
     });
-    // Auto-include the selected variant in displayVariants
+    // Auto-include the selected variant in displayVariants with composition weight
     const metalId = data.metals[index].metalId;
     if (metalId && variantId) {
       const dvIndex = data.displayVariants.findIndex((dv) => dv.metal === metalId);
       if (dvIndex >= 0) {
         const existing = data.displayVariants[dvIndex];
-        if (!existing.variantIds.includes(variantId)) {
+        if (!existing.variants.some((v) => v.variantId === variantId)) {
           const updated = [...data.displayVariants];
-          updated[dvIndex] = { ...existing, variantIds: [...existing.variantIds, variantId] };
+          updated[dvIndex] = {
+            ...existing,
+            variants: [...existing.variants, { variantId, weightInGrams: data.metals[index].weightInGrams }],
+          };
           onChange({
             ...data,
             metals: data.metals.map((m, i) =>
@@ -221,14 +254,28 @@ export function StepComposition({
     const compositionVariantIds = data.metals
       .filter((m) => m.metalId === metalId)
       .map((m) => m.variantId);
-    if (compositionVariantIds.includes(variantId) && existing.variantIds.includes(variantId)) {
+    const isPresent = existing.variants.some((v) => v.variantId === variantId);
+    if (compositionVariantIds.includes(variantId) && isPresent) {
       return; // Can't uncheck the variant used in composition
     }
-    const newIds = existing.variantIds.includes(variantId)
-      ? existing.variantIds.filter((id) => id !== variantId)
-      : [...existing.variantIds, variantId];
+    const newVariants = isPresent
+      ? existing.variants.filter((v) => v.variantId !== variantId)
+      : [...existing.variants, { variantId, weightInGrams: 0 }];
     const updated = [...data.displayVariants];
-    updated[dvIndex] = { ...existing, variantIds: newIds };
+    updated[dvIndex] = { ...existing, variants: newVariants };
+    onChange({ ...data, displayVariants: updated });
+  };
+
+  // Update weight for a specific display variant
+  const updateDisplayVariantWeight = (metalId: string, variantId: string, weight: number) => {
+    const dvIndex = data.displayVariants.findIndex((dv) => dv.metal === metalId);
+    if (dvIndex < 0) return;
+    const existing = data.displayVariants[dvIndex];
+    const newVariants = existing.variants.map((v) =>
+      v.variantId === variantId ? { ...v, weightInGrams: weight } : v
+    );
+    const updated = [...data.displayVariants];
+    updated[dvIndex] = { ...existing, variants: newVariants };
     onChange({ ...data, displayVariants: updated });
   };
 
@@ -284,6 +331,62 @@ export function StepComposition({
     );
     const variant = gemstone?.variants.find((v) => v._id === variantId);
     updateGemstone(index, {
+      variantId,
+      variantName: variant?.name || "",
+      pricePerCarat: variant?.pricePerCarat || 0,
+    });
+  };
+
+  // Display Gemstone handlers
+  const addDisplayGemstone = () => {
+    onChange({
+      ...data,
+      displayGemstones: [
+        ...data.displayGemstones,
+        { gemstone: "", variantId: "", variantName: "", weightInCarats: 0, quantity: 1, pricePerCarat: 0 },
+      ],
+    });
+  };
+
+  const updateDisplayGemstone = (index: number, updates: Partial<DisplayGemstoneEntry>) => {
+    const updated = [...data.displayGemstones];
+    updated[index] = { ...updated[index], ...updates };
+    onChange({ ...data, displayGemstones: updated });
+  };
+
+  const removeDisplayGemstone = (index: number) => {
+    onChange({
+      ...data,
+      displayGemstones: data.displayGemstones.filter((_, i) => i !== index),
+    });
+  };
+
+  const onDisplayGemstoneSelect = (index: number, gemstoneId: string) => {
+    const gemstone = gemstones.find((g) => g._id === gemstoneId);
+    updateDisplayGemstone(index, {
+      gemstone: gemstoneId,
+      variantId: "",
+      variantName: "",
+      pricePerCarat: 0,
+    });
+    // If only one variant, auto-select it
+    if (gemstone && gemstone.variants.length === 1) {
+      const v = gemstone.variants[0];
+      updateDisplayGemstone(index, {
+        gemstone: gemstoneId,
+        variantId: v._id,
+        variantName: v.name,
+        pricePerCarat: v.pricePerCarat,
+      });
+    }
+  };
+
+  const onDisplayGemstoneVariantSelect = (index: number, variantId: string) => {
+    const gemstone = gemstones.find(
+      (g) => g._id === data.displayGemstones[index].gemstone
+    );
+    const variant = gemstone?.variants.find((v) => v._id === variantId);
+    updateDisplayGemstone(index, {
       variantId,
       variantName: variant?.name || "",
       pricePerCarat: variant?.pricePerCarat || 0,
@@ -407,66 +510,99 @@ export function StepComposition({
                     </div>
                   </div>
 
-                  {/* Display Variants — choose which variants customers see */}
+                  {/* Display Variants — choose which variants customers see + set weights */}
                   {selectedMetal && selectedMetal.variants.length > 1 && entry.variantId && (
                     <div className="mt-3 pt-3 border-t border-charcoal-100">
                       <p className="text-xs font-medium text-charcoal-500 mb-2">
-                        Show these variants on product page:
+                        Show these variants on product page (set weight for each):
                       </p>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="space-y-2">
                         {selectedMetal.variants.map((v) => {
                           const dvEntry = data.displayVariants.find(
                             (dv) => dv.metal === entry.metalId
                           );
-                          const isChecked = dvEntry
-                            ? dvEntry.variantIds.includes(v._id)
-                            : false;
+                          const dvVariant = dvEntry?.variants.find((dv) => dv.variantId === v._id);
+                          const isChecked = !!dvVariant;
                           const isCompositionVariant = data.metals.some(
                             (m) => m.metalId === entry.metalId && m.variantId === v._id
                           );
                           return (
-                            <label
-                              key={v._id}
-                              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium cursor-pointer transition-all ${
-                                isChecked
-                                  ? "border-gold-400 bg-gold-50 text-gold-700"
-                                  : "border-charcoal-200 bg-white text-charcoal-500 hover:border-charcoal-300"
-                              } ${isCompositionVariant ? "opacity-90" : ""}`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                disabled={isCompositionVariant && isChecked}
-                                onChange={() =>
-                                  toggleDisplayVariant(entry.metalId, v._id)
-                                }
-                                className="sr-only"
-                              />
-                              <span
-                                className={`flex h-3.5 w-3.5 items-center justify-center rounded border ${
+                            <div key={v._id} className="flex items-center gap-3">
+                              <label
+                                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium cursor-pointer transition-all min-w-[140px] ${
                                   isChecked
-                                    ? "border-gold-500 bg-gold-500 text-white"
-                                    : "border-charcoal-300"
-                                }`}
+                                    ? "border-gold-400 bg-gold-50 text-gold-700"
+                                    : "border-charcoal-200 bg-white text-charcoal-500 hover:border-charcoal-300"
+                                } ${isCompositionVariant ? "opacity-90" : ""}`}
                               >
-                                {isChecked && (
-                                  <svg
-                                    className="h-2.5 w-2.5"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth={3}
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M5 13l4 4L19 7"
-                                    />
-                                  </svg>
-                                )}
-                              </span>
-                              {v.name} ({v.purity}%)
-                            </label>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  disabled={isCompositionVariant && isChecked}
+                                  onChange={() =>
+                                    toggleDisplayVariant(entry.metalId, v._id)
+                                  }
+                                  className="sr-only"
+                                />
+                                <span
+                                  className={`flex h-3.5 w-3.5 items-center justify-center rounded border ${
+                                    isChecked
+                                      ? "border-gold-500 bg-gold-500 text-white"
+                                      : "border-charcoal-300"
+                                  }`}
+                                >
+                                  {isChecked && (
+                                    <svg
+                                      className="h-2.5 w-2.5"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth={3}
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M5 13l4 4L19 7"
+                                      />
+                                    </svg>
+                                  )}
+                                </span>
+                                {v.name} ({v.purity}%)
+                              </label>
+                              {isChecked && (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    step="0.001"
+                                    min="0"
+                                    placeholder="Weight (g)"
+                                    value={
+                                      isCompositionVariant
+                                        ? entry.weightInGrams || ""
+                                        : dvVariant?.weightInGrams || ""
+                                    }
+                                    disabled={isCompositionVariant}
+                                    onChange={(e) => {
+                                      const num = parseFloat(e.target.value);
+                                      if (!isNaN(num)) {
+                                        updateDisplayVariantWeight(entry.metalId, v._id, num);
+                                      }
+                                    }}
+                                    className={`w-28 h-8 px-2 rounded-lg border text-xs ${
+                                      isCompositionVariant
+                                        ? "border-charcoal-100 bg-charcoal-50 text-charcoal-400"
+                                        : "border-charcoal-200 bg-white text-charcoal-700"
+                                    }`}
+                                  />
+                                  <span className="text-[10px] text-charcoal-400">g</span>
+                                  {isCompositionVariant && (
+                                    <span className="text-[10px] text-charcoal-400 italic">
+                                      (from composition)
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
@@ -474,7 +610,7 @@ export function StepComposition({
                         (m) => m.metalId === entry.metalId && m.variantId
                       ) && (
                         <p className="text-[10px] text-charcoal-400 mt-1">
-                          The variant used in composition is always included.
+                          The variant used in composition is always included. Its weight is set above.
                         </p>
                       )}
                     </div>
@@ -630,6 +766,128 @@ export function StepComposition({
               </span>
               <PriceDisplay amount={gemstoneTotal} />
             </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Display Gemstone Options — alternative gemstones customers can choose */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Gem size={20} className="text-gold-500" />
+            Gemstone Options for Customers
+          </CardTitle>
+          <Button type="button" variant="secondary" size="sm" onClick={addDisplayGemstone}>
+            <Plus size={16} />
+            Add Option
+          </Button>
+        </CardHeader>
+        <div className="px-4 pb-4 md:px-6 md:pb-6 space-y-4">
+          <p className="text-xs text-charcoal-400">
+            Add alternative gemstone options that customers can choose from on the product page.
+            The price will be recalculated based on their selection.
+          </p>
+          {data.displayGemstones.length === 0 ? (
+            <p className="text-sm text-charcoal-400 text-center py-4">
+              No alternative gemstones. Customers will only see the default gemstone from composition above.
+            </p>
+          ) : (
+            data.displayGemstones.map((entry, index) => {
+              const selectedGemstone = gemstones.find((g) => g._id === entry.gemstone);
+              const subtotal = entry.weightInCarats * entry.quantity * entry.pricePerCarat;
+
+              return (
+                <div
+                  key={index}
+                  className="rounded-xl border border-charcoal-100 bg-charcoal-50/30 p-4"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-charcoal-500">
+                      Option {index + 1}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeDisplayGemstone(index)}
+                      className="text-charcoal-400 hover:text-error h-8 w-8 min-w-0"
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <Select
+                      label="Gemstone"
+                      value={entry.gemstone}
+                      onChange={(e) => onDisplayGemstoneSelect(index, e.target.value)}
+                      options={gemstones.map((g) => ({
+                        value: g._id,
+                        label: g.name,
+                      }))}
+                      placeholder="Select gemstone"
+                    />
+
+                    <Select
+                      label="Variant"
+                      value={entry.variantId}
+                      onChange={(e) => onDisplayGemstoneVariantSelect(index, e.target.value)}
+                      options={
+                        selectedGemstone?.variants.map((v) => ({
+                          value: v._id,
+                          label: v.name,
+                        })) || []
+                      }
+                      placeholder="Select variant"
+                    />
+
+                    <Input
+                      label="Weight (carats)"
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={dgWeightRaw[index] ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setDgWeightRaw((prev) => {
+                          const a = [...prev];
+                          a[index] = raw;
+                          return a;
+                        });
+                        const num = parseFloat(raw);
+                        if (!isNaN(num)) {
+                          updateDisplayGemstone(index, { weightInCarats: num });
+                        }
+                      }}
+                    />
+
+                    <Input
+                      label="Quantity"
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={entry.quantity || ""}
+                      onChange={(e) =>
+                        updateDisplayGemstone(index, {
+                          quantity: parseInt(e.target.value, 10) || 1,
+                        })
+                      }
+                    />
+
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal-600 mb-1.5">
+                        Subtotal
+                      </label>
+                      <div className="flex items-center h-11 px-3 rounded-lg bg-charcoal-100/50 border border-charcoal-100">
+                        <span className="text-sm font-mono text-gold-700">
+                          {formatCurrency(subtotal)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </Card>

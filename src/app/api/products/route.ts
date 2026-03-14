@@ -3,8 +3,19 @@ import dbConnect from "@/lib/db";
 import Product from "@/models/Product";
 import { productCreateSchema } from "@/lib/validators/product";
 import { ITEMS_PER_PAGE } from "@/constants";
-import { generateProductCode } from "@/lib/utils";
+import { generateProductCode, slugify } from "@/lib/utils";
 import { calculateProductPrice } from "@/lib/pricing";
+
+async function generateUniqueSlug(name: string): Promise<string> {
+  const base = slugify(name);
+  let slug = base;
+  let counter = 1;
+  while (await Product.exists({ slug })) {
+    slug = `${base}-${counter}`;
+    counter++;
+  }
+  return slug;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -106,6 +117,9 @@ export async function POST(request: NextRequest) {
         Date.now() % 100000
       );
     }
+
+    // Ensure the slug is unique — append a numeric suffix if the base slug is already taken
+    (validatedData as Record<string, unknown>).slug = await generateUniqueSlug(validatedData.name);
 
     // Always recalculate prices server-side — never trust client-sent values
     const prices = calculateProductPrice({

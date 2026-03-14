@@ -116,9 +116,14 @@ export function CheckoutClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: items.map((item: { productId: string; quantity: number }) => ({
+          items: items.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
+            customPrice: item.totalPrice,
+            selectedSize: item.selectedSize,
+            selectedColor: item.selectedColor,
+            selectedMetalVariants: item.selectedMetalVariants,
+            selectedGemstone: item.selectedGemstone,
           })),
           shippingAddress: shipping,
           paymentMethod,

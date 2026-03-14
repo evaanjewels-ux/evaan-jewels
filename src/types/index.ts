@@ -167,7 +167,17 @@ export interface IProduct {
   };
 
   /** Which metal variants to show on the product page for variant-switching */
-  displayVariants: { metal: Types.ObjectId | string; variantIds: (Types.ObjectId | string)[] }[];
+  displayVariants: { metal: Types.ObjectId | string; variants: { variantId: Types.ObjectId | string; weightInGrams: number }[] }[];
+
+  /** Which gemstone options to show on the product page for gemstone-switching */
+  displayGemstones: {
+    gemstone: Types.ObjectId | string;
+    variantId: Types.ObjectId | string;
+    variantName: string;
+    weightInCarats: number;
+    quantity: number;
+    pricePerCarat: number;
+  }[];
 
   hallmarkCertified: boolean;
 
@@ -294,6 +304,16 @@ export interface ICartItemMetalVariant {
   weightInGrams: number;
 }
 
+export interface ICartItemGemstone {
+  gemstoneId: string;
+  gemstoneName: string;
+  variantId: string;
+  variantName: string;
+  weightInCarats: number;
+  quantity: number;
+  pricePerCarat: number;
+}
+
 export interface ICartItem {
   /** Unique key: productId|selectedSize|selectedColor|metalVariants — allows same product in different variant combos as separate items */
   cartItemId: string;
@@ -309,6 +329,7 @@ export interface ICartItem {
   selectedSize?: string;
   selectedColor?: string;
   selectedMetalVariants?: ICartItemMetalVariant[];
+  selectedGemstone?: ICartItemGemstone;
 }
 
 // ─── API Response Types ──────────────────────────────
