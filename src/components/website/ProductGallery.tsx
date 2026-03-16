@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, ZoomIn, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -44,6 +44,13 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
     return items;
   }, [images, videos]);
 
+  // Reset activeIndex when the images list changes (e.g. color variant switch)
+  // to prevent accessing an out-of-bounds index (crash: cannot read 'kind' of undefined).
+  useEffect(() => {
+    setActiveIndex(0);
+    setIsZoomed(false);
+  }, [images]);
+
   const goTo = (index: number) => {
     if (index < 0) setActiveIndex(mediaItems.length - 1);
     else if (index >= mediaItems.length) setActiveIndex(0);
@@ -59,7 +66,9 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
     );
   }
 
-  const activeItem = mediaItems[activeIndex];
+  // Clamp to valid range as a safety guard
+  const safeIndex = Math.min(activeIndex, mediaItems.length - 1);
+  const activeItem = mediaItems[safeIndex];
 
   return (
     <div className="flex flex-col gap-3">
@@ -77,7 +86,7 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
             {activeItem.kind === "image" ? (
               <Image
                 src={activeItem.src}
-                alt={`${productName} — Image ${activeIndex + 1}`}
+                alt={`${productName} — Image ${safeIndex + 1}`}
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
                 className={cn(
@@ -155,7 +164,7 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
         {/* Media Counter */}
         {mediaItems.length > 1 && (
           <div className="absolute bottom-2 left-2 rounded-full bg-charcoal-900/60 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
-            {activeIndex + 1} / {mediaItems.length}
+            {safeIndex + 1} / {mediaItems.length}
           </div>
         )}
       </div>
@@ -169,7 +178,7 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
               onClick={() => setActiveIndex(idx)}
               className={cn(
                 "relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 transition-all sm:h-20 sm:w-20",
-                activeIndex === idx
+                safeIndex === idx
                   ? "border-gold-500 shadow-gold"
                   : "border-transparent hover:border-charcoal-200"
               )}

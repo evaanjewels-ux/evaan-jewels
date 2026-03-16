@@ -100,29 +100,34 @@ export function PricingDashboardContent() {
     unit: string;
   } | null>(null);
 
-  const fetchData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const [metalsRes, gemstonesRes, historyRes] = await Promise.all([
-        fetch("/api/metals"),
-        fetch("/api/gemstones"),
-        fetch("/api/pricing/history").catch(() => ({ json: async () => ({ data: [] }) })),
-      ]);
+  const fetchData = useCallback(async (retries = 3) => {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        setIsLoading(true);
+        const ts = Date.now();
+        const [metalsRes, gemstonesRes, historyRes] = await Promise.all([
+          fetch(`/api/metals?_t=${ts}`, { cache: "no-store" }),
+          fetch(`/api/gemstones?_t=${ts}`, { cache: "no-store" }),
+          fetch(`/api/pricing/history?_t=${ts}`, { cache: "no-store" }).catch(() => ({ json: async () => ({ data: [] }) })),
+        ]);
 
-      const [metalsData, gemstonesData, historyData] = await Promise.all([
-        metalsRes.json(),
-        gemstonesRes.json(),
-        historyRes.json(),
-      ]);
+        const [metalsData, gemstonesData, historyData] = await Promise.all([
+          metalsRes.json(),
+          gemstonesRes.json(),
+          historyRes.json(),
+        ]);
 
-      setMetals(metalsData.data || []);
-      setGemstones(gemstonesData.data || []);
-      setPriceHistory(historyData.data || []);
-    } catch {
-      toast.error("Failed to load pricing data");
-    } finally {
-      setIsLoading(false);
+        setMetals(metalsData.data || []);
+        setGemstones(gemstonesData.data || []);
+        setPriceHistory(historyData.data || []);
+        setIsLoading(false);
+        return;
+      } catch {
+        if (attempt === retries - 1) toast.error("Failed to load pricing data");
+      }
+      if (attempt < retries - 1) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
     }
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -246,7 +251,7 @@ export function PricingDashboardContent() {
             View and update all metal and gemstone prices
           </p>
         </div>
-        <Button variant="outline" onClick={fetchData}>
+        <Button variant="outline" onClick={() => fetchData()}>
           <RefreshCw size={16} />
           Refresh
         </Button>

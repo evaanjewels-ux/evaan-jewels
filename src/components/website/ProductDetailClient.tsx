@@ -113,6 +113,7 @@ interface ProductDetailClientProps {
   variantWeightMap: Record<string, number>;
   availableGemstones: AvailableGemstone[];
   displayGemstoneOptions: DisplayGemstoneOption[];
+  chargeVariantPricePerGram?: number;
   whatsappMessage: string;
 }
 
@@ -129,6 +130,7 @@ export function ProductDetailClient({
   variantWeightMap,
   availableGemstones,
   displayGemstoneOptions,
+  chargeVariantPricePerGram,
   whatsappMessage,
 }: ProductDetailClientProps) {
   const { addItem } = useCart();
@@ -200,7 +202,8 @@ export function ProductDetailClient({
       const metalId = getMetalId(mc.metal);
       const sel = selectedVariants[metalId];
       const pricePerGram = sel ? sel.pricePerGram : mc.pricePerGram;
-      const weightInGrams = sel ? sel.weightInGrams : mc.weightInGrams;
+      // Guard: if selected weight is 0 (invalid), fall back to composition weight
+      const weightInGrams = (sel && sel.weightInGrams > 0) ? sel.weightInGrams : mc.weightInGrams;
       return {
         metal: metalId as unknown as import("mongoose").Types.ObjectId,
         variantId: (sel?.variantId || mc.variantId) as unknown as import("mongoose").Types.ObjectId,
@@ -246,17 +249,27 @@ export function ProductDetailClient({
         ? {
             ...product.chargeBasedOnVariant,
             pricePerGram: (() => {
+              // Look up across ALL variants in available metals (not just displayed ones)
               const m = availableMetals.find(
                 (am) => am._id === product.chargeBasedOnVariant!.metalId
               );
-              return m?.variants.find(
+              const fromFiltered = m?.variants.find(
                 (v) => v._id === product.chargeBasedOnVariant!.variantId
+              )?.pricePerGram;
+              // If the charge-based variant isn't in the filtered list,
+              // try to find its price from the currently selected variant
+              // of the same metal, or fall back to the server-provided price.
+              if (fromFiltered !== undefined) return fromFiltered;
+              if (chargeVariantPricePerGram !== undefined) return chargeVariantPricePerGram;
+              const sel = selectedVariants[product.chargeBasedOnVariant!.metalId];
+              return sel?.pricePerGram ?? product.metalComposition.find(
+                (mc) => getMetalId(mc.metal) === product.chargeBasedOnVariant!.metalId
               )?.pricePerGram;
             })(),
           }
         : undefined,
     });
-  }, [product, selectedVariants, selectedGemstone, availableMetals]);
+  }, [product, selectedVariants, selectedGemstone, availableMetals, chargeVariantPricePerGram]);
 
   // ─── Dynamic metal composition for display ─────
   const displayMetalComposition = useMemo(() => {
@@ -264,7 +277,8 @@ export function ProductDetailClient({
       const metalId = getMetalId(mc.metal);
       const sel = selectedVariants[metalId];
       const pricePerGram = sel ? sel.pricePerGram : mc.pricePerGram;
-      const weightInGrams = sel ? sel.weightInGrams : mc.weightInGrams;
+      // Guard: if selected weight is 0, fall back to composition weight
+      const weightInGrams = (sel && sel.weightInGrams > 0) ? sel.weightInGrams : mc.weightInGrams;
       return {
         variantName: sel?.variantName || mc.variantName,
         weightInGrams,
@@ -313,9 +327,12 @@ export function ProductDetailClient({
   // ─── Variant change handler ─────────────────────
   const handleVariantChange = useCallback(
     (metalId: string, variant: AvailableVariant) => {
-      // Get weight for this variant from the weight map, fall back to composition weight
+      // Get weight for this variant from the weight map, fall back to composition weight.
+      // Use || instead of ?? so that a 0 weight in the map falls through to the
+      // composition weight (a weight of 0g is never valid for jewelry).
       const mc = product.metalComposition.find((c) => getMetalId(c.metal) === metalId);
-      const weight = variantWeightMap[variant._id] ?? mc?.weightInGrams ?? 0;
+      const mapWeight = variantWeightMap[variant._id];
+      const weight = (mapWeight && mapWeight > 0) ? mapWeight : (mc?.weightInGrams || 0);
       setSelectedVariants((prev) => ({
         ...prev,
         [metalId]: {

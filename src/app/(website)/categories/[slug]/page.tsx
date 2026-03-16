@@ -83,11 +83,16 @@ async function getCategoryData(
     minPrice?: string;
     maxPrice?: string;
   },
-  retries = 2
+  retries = 4
 ) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       await dbConnect();
+
+      if (attempt > 0) {
+        const { connection } = await import("mongoose");
+        await connection.db?.admin().ping();
+      }
 
       const category = await Category.findOne({ slug, isActive: true }).lean();
       if (!category) return null;
@@ -138,7 +143,7 @@ async function getCategoryData(
     } catch (err) {
       console.error(`getCategoryData attempt ${attempt + 1} failed:`, err);
       if (attempt === retries) return null;
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
     }
   }
   return null;

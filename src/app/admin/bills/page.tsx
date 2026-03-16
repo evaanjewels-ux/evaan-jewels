@@ -76,29 +76,34 @@ export default function BillsListPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const fetchBills = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(ITEMS_PER_PAGE),
-      });
-      if (search) params.set("search", search);
-      if (dateFrom) params.set("from", dateFrom);
-      if (dateTo) params.set("to", dateTo);
+  const fetchBills = useCallback(async (retries = 3) => {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        setIsLoading(true);
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(ITEMS_PER_PAGE),
+          _t: String(Date.now()),
+        });
+        if (search) params.set("search", search);
+        if (dateFrom) params.set("from", dateFrom);
+        if (dateTo) params.set("to", dateTo);
 
-      const res = await fetch(`/api/bills?${params}`);
-      const data = await res.json();
-      if (data.success) {
-        setBills(data.data);
-        setTotalPages(data.pagination.totalPages);
-        setTotal(data.pagination.total);
+        const res = await fetch(`/api/bills?${params}`, { cache: "no-store" });
+        const data = await res.json();
+        if (data.success) {
+          setBills(data.data);
+          setTotalPages(data.pagination.totalPages);
+          setTotal(data.pagination.total);
+          setIsLoading(false);
+          return;
+        }
+      } catch {
+        if (attempt === retries - 1) toast.error("Failed to load bills");
       }
-    } catch {
-      toast.error("Failed to load bills");
-    } finally {
-      setIsLoading(false);
+      if (attempt < retries - 1) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
     }
+    setIsLoading(false);
   }, [page, search, dateFrom, dateTo]);
 
   useEffect(() => {

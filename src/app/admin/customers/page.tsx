@@ -55,28 +55,33 @@ export default function CustomersListPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const fetchCustomers = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(ITEMS_PER_PAGE),
-      });
-      if (search) params.set("search", search);
-      if (debtFilter) params.set("hasDebt", "true");
+  const fetchCustomers = useCallback(async (retries = 3) => {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        setIsLoading(true);
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(ITEMS_PER_PAGE),
+          _t: String(Date.now()),
+        });
+        if (search) params.set("search", search);
+        if (debtFilter) params.set("hasDebt", "true");
 
-      const res = await fetch(`/api/customers?${params}`);
-      const data = await res.json();
-      if (data.success) {
-        setCustomers(data.data);
-        setTotalPages(data.pagination.totalPages);
-        setTotal(data.pagination.total);
+        const res = await fetch(`/api/customers?${params}`, { cache: "no-store" });
+        const data = await res.json();
+        if (data.success) {
+          setCustomers(data.data);
+          setTotalPages(data.pagination.totalPages);
+          setTotal(data.pagination.total);
+          setIsLoading(false);
+          return;
+        }
+      } catch {
+        if (attempt === retries - 1) toast.error("Failed to load customers");
       }
-    } catch {
-      toast.error("Failed to load customers");
-    } finally {
-      setIsLoading(false);
+      if (attempt < retries - 1) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
     }
+    setIsLoading(false);
   }, [page, search, debtFilter]);
 
   useEffect(() => {

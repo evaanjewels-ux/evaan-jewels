@@ -42,19 +42,23 @@ export default function CategoriesListPage() {
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchCategories = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetch("/api/categories");
-      const data = await res.json();
-      if (data.success) {
-        setCategories(data.data);
+  const fetchCategories = useCallback(async (retries = 3) => {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        setIsLoading(true);
+        const res = await fetch(`/api/categories?_t=${Date.now()}`, { cache: "no-store" });
+        const data = await res.json();
+        if (data.success) {
+          setCategories(data.data);
+          setIsLoading(false);
+          return;
+        }
+      } catch {
+        if (attempt === retries - 1) toast.error("Failed to load categories");
       }
-    } catch {
-      toast.error("Failed to load categories");
-    } finally {
-      setIsLoading(false);
+      if (attempt < retries - 1) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
     }
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {

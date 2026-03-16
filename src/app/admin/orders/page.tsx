@@ -93,29 +93,34 @@ export default function OrdersListPage() {
   const [total, setTotal] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
 
-  const fetchOrders = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(ITEMS_PER_PAGE),
-      });
-      if (search) params.set("search", search);
-      if (status) params.set("status", status);
-      if (paymentStatus) params.set("paymentStatus", paymentStatus);
+  const fetchOrders = useCallback(async (retries = 3) => {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        setIsLoading(true);
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(ITEMS_PER_PAGE),
+          _t: String(Date.now()),
+        });
+        if (search) params.set("search", search);
+        if (status) params.set("status", status);
+        if (paymentStatus) params.set("paymentStatus", paymentStatus);
 
-      const res = await fetch(`/api/orders?${params}`);
-      const data = await res.json();
-      if (data.success) {
-        setOrders(data.data);
-        setTotalPages(data.pagination.totalPages);
-        setTotal(data.pagination.total);
+        const res = await fetch(`/api/orders?${params}`, { cache: "no-store" });
+        const data = await res.json();
+        if (data.success) {
+          setOrders(data.data);
+          setTotalPages(data.pagination.totalPages);
+          setTotal(data.pagination.total);
+          setIsLoading(false);
+          return;
+        }
+      } catch {
+        if (attempt === retries - 1) toast.error("Failed to load orders");
       }
-    } catch {
-      toast.error("Failed to load orders");
-    } finally {
-      setIsLoading(false);
+      if (attempt < retries - 1) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
     }
+    setIsLoading(false);
   }, [page, search, status, paymentStatus]);
 
   useEffect(() => {

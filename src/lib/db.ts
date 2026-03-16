@@ -53,9 +53,12 @@ async function dbConnect(): Promise<typeof mongoose> {
       // prevents intermittent empty results on concurrent requests
       bufferCommands: true,
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 10000,
-      connectTimeoutMS: 10000,
-      socketTimeoutMS: 20000,
+      serverSelectionTimeoutMS: 15000,
+      connectTimeoutMS: 15000,
+      socketTimeoutMS: 30000,
+      // Retry reads/writes once on transient failures
+      retryReads: true,
+      retryWrites: true,
     };
 
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => {

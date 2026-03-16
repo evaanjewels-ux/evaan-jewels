@@ -94,30 +94,39 @@ export default function ProductsListPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(ITEMS_PER_PAGE),
-        sort: "-createdAt",
-      });
-      if (search) params.set("search", search);
-      if (filterCategory) params.set("category", filterCategory);
-      if (filterGender) params.set("gender", filterGender);
+  const fetchProducts = useCallback(async (retries = 3) => {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        setIsLoading(true);
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(ITEMS_PER_PAGE),
+          sort: "-createdAt",
+          _t: String(Date.now()),
+        });
+        if (search) params.set("search", search);
+        if (filterCategory) params.set("category", filterCategory);
+        if (filterGender) params.set("gender", filterGender);
 
-      const res = await fetch(`/api/products?${params}`);
-      const data = await res.json();
-      if (data.success) {
-        setProducts(data.data);
-        setTotalPages(data.pagination.totalPages);
-        setTotal(data.pagination.total);
+        const res = await fetch(`/api/products?${params}`, { cache: "no-store" });
+        const data = await res.json();
+        if (data.success) {
+          setProducts(data.data);
+          setTotalPages(data.pagination.totalPages);
+          setTotal(data.pagination.total);
+          setIsLoading(false);
+          return;
+        }
+      } catch {
+        if (attempt === retries - 1) {
+          toast.error("Failed to load products");
+        }
       }
-    } catch {
-      toast.error("Failed to load products");
-    } finally {
-      setIsLoading(false);
+      if (attempt < retries - 1) {
+        await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+      }
     }
+    setIsLoading(false);
   }, [page, search, filterCategory, filterGender]);
 
   useEffect(() => {

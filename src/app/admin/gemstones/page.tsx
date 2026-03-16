@@ -51,19 +51,23 @@ export default function GemstonesListPage() {
   const [deleteTarget, setDeleteTarget] = useState<Gemstone | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchGemstones = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetch("/api/gemstones");
-      const data = await res.json();
-      if (data.success) {
-        setGemstones(data.data);
+  const fetchGemstones = useCallback(async (retries = 3) => {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        setIsLoading(true);
+        const res = await fetch(`/api/gemstones?_t=${Date.now()}`, { cache: "no-store" });
+        const data = await res.json();
+        if (data.success) {
+          setGemstones(data.data);
+          setIsLoading(false);
+          return;
+        }
+      } catch {
+        if (attempt === retries - 1) toast.error("Failed to load gemstones");
       }
-    } catch {
-      toast.error("Failed to load gemstones");
-    } finally {
-      setIsLoading(false);
+      if (attempt < retries - 1) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
     }
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {

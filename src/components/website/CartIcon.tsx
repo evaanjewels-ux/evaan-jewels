@@ -9,7 +9,7 @@ export function CartIcon() {
   return (
     <button
       onClick={toggleCart}
-      className="relative flex h-10 w-10 items-center justify-center rounded-lg text-charcoal-600 transition-colors hover:bg-charcoal-50"
+      className="relative flex h-10 w-10 items-center justify-center rounded-lg text-charcoal-300 transition-colors hover:bg-white/10 hover:text-gold-400"
       aria-label={`Shopping cart with ${itemCount} items`}
     >
       <ShoppingBag className="h-5 w-5" />

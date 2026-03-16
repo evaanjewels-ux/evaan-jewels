@@ -89,10 +89,17 @@ export async function generateMetadata({
   }
 }
 
-async function getProductData(slug: string, retries = 2) {
+async function getProductData(slug: string, retries = 4) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       await dbConnect();
+
+      // Warm the connection: a lightweight ping ensures the socket is live
+      // before executing the real queries, preventing empty results on cold starts.
+      if (attempt > 0) {
+        const { connection } = await import("mongoose");
+        await connection.db?.admin().ping();
+      }
 
       const product = await Product.findOne({ slug, isActive: true })
         .populate("category", "name slug")
@@ -144,11 +151,35 @@ async function getProductData(slug: string, retries = 2) {
         return m;
       });
 
-      // Build variant weight map (variantId -> weightInGrams) for the client
+      // Build variant weight map (variantId -> weightInGrams) for the client.
+      // Start with the original composition weights as defaults, then overlay
+      // admin-specified weights from displayVariants (skip 0 weights).
       const variantWeightMap: Record<string, number> = {};
+      for (const mc of (product.metalComposition || []) as { variantId: unknown; weightInGrams: number }[]) {
+        if (mc.weightInGrams > 0) {
+          variantWeightMap[String(mc.variantId)] = mc.weightInGrams;
+        }
+      }
       for (const dv of displayVariants) {
         for (const v of dv.variants) {
-          variantWeightMap[String(v.variantId)] = v.weightInGrams;
+          if (v.weightInGrams > 0) {
+            variantWeightMap[String(v.variantId)] = v.weightInGrams;
+          }
+        }
+      }
+
+      // Also resolve chargeBasedOnVariant pricePerGram from the FULL metal data
+      // (not filtered) so the client doesn't lose it when the charge variant
+      // isn't in displayVariants.
+      let chargeVariantPricePerGram: number | undefined;
+      const cbv = product.chargeBasedOnVariant as { metalId?: unknown; variantId?: unknown } | undefined;
+      if (cbv?.metalId) {
+        const fullMetal = metals.find((m) => String(m._id) === String(cbv.metalId));
+        if (fullMetal) {
+          const fullVariant = fullMetal.variants.find(
+            (v: { _id: unknown }) => String(v._id) === String(cbv.variantId)
+          );
+          chargeVariantPricePerGram = fullVariant?.pricePerGram;
         }
       }
 
@@ -174,11 +205,12 @@ async function getProductData(slug: string, retries = 2) {
         variantWeightMap: JSON.parse(JSON.stringify(variantWeightMap)),
         availableGemstones: JSON.parse(JSON.stringify(gemstoneData)),
         displayGemstones: JSON.parse(JSON.stringify(displayGemstones)),
+        chargeVariantPricePerGram,
       };
     } catch (err) {
       console.error(`getProductData attempt ${attempt + 1} failed:`, err);
       if (attempt === retries) return null;
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
     }
   }
   return null;
@@ -190,7 +222,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   if (!data) notFound();
 
-  const { product, relatedProducts, availableMetals, variantWeightMap, availableGemstones, displayGemstones } = data;
+  const { product, relatedProducts, availableMetals, variantWeightMap, availableGemstones, displayGemstones, chargeVariantPricePerGram } = data;
   const category = product.category as { name: string; slug: string } | null;
 
   const whatsappMessage = encodeURIComponent(
@@ -327,6 +359,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             variantWeightMap={variantWeightMap || {}}
             availableGemstones={availableGemstones || []}
             displayGemstoneOptions={displayGemstones || []}
+            chargeVariantPricePerGram={chargeVariantPricePerGram}
             whatsappMessage={whatsappMessage}
           />
         </div>

@@ -49,19 +49,23 @@ export default function MetalsListPage() {
   const [deleteTarget, setDeleteTarget] = useState<Metal | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchMetals = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetch("/api/metals");
-      const data = await res.json();
-      if (data.success) {
-        setMetals(data.data);
+  const fetchMetals = useCallback(async (retries = 3) => {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        setIsLoading(true);
+        const res = await fetch(`/api/metals?_t=${Date.now()}`, { cache: "no-store" });
+        const data = await res.json();
+        if (data.success) {
+          setMetals(data.data);
+          setIsLoading(false);
+          return;
+        }
+      } catch {
+        if (attempt === retries - 1) toast.error("Failed to load metals");
       }
-    } catch {
-      toast.error("Failed to load metals");
-    } finally {
-      setIsLoading(false);
+      if (attempt < retries - 1) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
     }
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {

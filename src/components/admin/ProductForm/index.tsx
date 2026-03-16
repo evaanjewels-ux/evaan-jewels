@@ -259,15 +259,34 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         mode === "edit" ? `/api/products/${productId}` : "/api/products";
       const method = mode === "edit" ? "PUT" : "POST";
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      // Retry up to 2 times on network/server failures
+      let result = null;
+      let lastError = "";
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
 
-      const result = await res.json();
+          result = await res.json();
+          if (result.success) break;
 
-      if (result.success) {
+          // Don't retry validation errors — they'll fail again
+          if (res.status === 400) break;
+
+          lastError = result.error || "Failed to save product";
+        } catch {
+          lastError = "Network error — retrying...";
+        }
+
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        }
+      }
+
+      if (result?.success) {
         setIsSuccess(true);
         toast.success(
           mode === "edit"
@@ -279,7 +298,7 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
           router.refresh();
         }, 1500);
       } else {
-        toast.error(result.error || "Failed to save product");
+        toast.error(lastError || result?.error || "Failed to save product");
       }
     } catch {
       toast.error("Something went wrong");
