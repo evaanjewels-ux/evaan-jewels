@@ -27,12 +27,22 @@ export async function generateMetadata({
 }: ProductPageProps): Promise<Metadata> {
   try {
     const { slug } = await params;
-    await dbConnect();
-    const product = await Product.findOne({ slug, isActive: true })
-      .populate("category", "name slug")
-      .lean();
 
-    if (!product) return { title: "Product Not Found" };
+    // generateMetadata is the FIRST function to run on cold starts,
+    // so warm the DB connection here to benefit the page component.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await dbConnect();
+      const product = await Product.findOne({ slug, isActive: true })
+        .populate("category", "name slug")
+        .lean();
+
+      if (!product) {
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+          continue;
+        }
+        return { title: "Product Not Found" };
+      }
 
     const categoryName =
       typeof product.category === "object" && product.category !== null
@@ -84,28 +94,50 @@ export async function generateMetadata({
           : product.thumbnailImage ? [product.thumbnailImage] : [],
       },
     };
+    }
+    // All retry attempts exhausted without finding the product
+    return { title: "Product Not Found" };
   } catch {
     return { title: "Product" };
   }
 }
 
-async function getProductData(slug: string, retries = 4) {
+async function getProductData(slug: string, retries = 5) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       await dbConnect();
 
-      // Warm the connection: a lightweight ping ensures the socket is live
-      // before executing the real queries, preventing empty results on cold starts.
-      if (attempt > 0) {
-        const { connection } = await import("mongoose");
-        await connection.db?.admin().ping();
+      // Always ping on cold starts to ensure the connection is truly live.
+      // mongoose may report readyState=1 but the socket isn't ready yet,
+      // causing findOne to silently return null.
+      const { connection } = await import("mongoose");
+      if (connection.readyState === 1) {
+        try {
+          await connection.db?.admin().ping();
+        } catch {
+          // Ping failed — connection is stale, force reconnect
+          console.warn(`[getProductData] ping failed on attempt ${attempt + 1}, reconnecting…`);
+          connection.close().catch(() => {});
+          const dbConnect = (await import("@/lib/db")).default;
+          await dbConnect();
+        }
       }
 
       const product = await Product.findOne({ slug, isActive: true })
         .populate("category", "name slug")
         .lean();
 
-      if (!product) return null;
+      // On cold starts, findOne() can return null even for valid slugs because
+      // the connection pool isn't fully warmed.  Retry a few times before
+      // concluding the product genuinely doesn't exist.
+      if (!product) {
+        if (attempt < retries) {
+          console.warn(`[getProductData] product "${slug}" returned null on attempt ${attempt + 1}, retrying…`);
+          await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+          continue;
+        }
+        return null;
+      }
 
       // Get related products from same category
       const relatedProducts = await Product.find({

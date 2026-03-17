@@ -35,9 +35,17 @@ async function dbConnect(): Promise<typeof mongoose> {
   // If we already have a live connection, verify it's still responsive
   if (cached.conn) {
     const readyState = cached.conn.connection.readyState;
-    // 1 = connected — reuse immediately
+    // 1 = connected — verify with a ping before reusing
     if (readyState === 1) {
-      return cached.conn;
+      try {
+        await cached.conn.connection.db?.admin().ping();
+        return cached.conn;
+      } catch {
+        // Ping failed — connection is stale, force reconnect
+        console.warn("[dbConnect] stale connection detected, reconnecting…");
+        cached.conn = null;
+        cached.promise = null;
+      }
     }
     // 2 = connecting — wait for the existing promise below
     // 0 or 3 = disconnected / disconnecting — clear and reconnect
