@@ -17,6 +17,7 @@ import { productJsonLd, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
+export const maxDuration = 60;
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -38,7 +39,7 @@ export async function generateMetadata({
 
       if (!product) {
         if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
           continue;
         }
         return { title: "Product Not Found" };
@@ -102,24 +103,24 @@ export async function generateMetadata({
   }
 }
 
-async function getProductData(slug: string, retries = 5) {
+async function getProductData(slug: string, retries = 3) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       await dbConnect();
 
-      // Always ping on cold starts to ensure the connection is truly live.
-      // mongoose may report readyState=1 but the socket isn't ready yet,
-      // causing findOne to silently return null.
-      const { connection } = await import("mongoose");
-      if (connection.readyState === 1) {
-        try {
-          await connection.db?.admin().ping();
-        } catch {
-          // Ping failed — connection is stale, force reconnect
-          console.warn(`[getProductData] ping failed on attempt ${attempt + 1}, reconnecting…`);
-          connection.close().catch(() => {});
-          const dbConnect = (await import("@/lib/db")).default;
-          await dbConnect();
+      // Ping on cold starts to ensure the connection is truly live.
+      // Skip on first attempt if we just connected (dbConnect already validates).
+      if (attempt > 0) {
+        const { connection } = await import("mongoose");
+        if (connection.readyState === 1) {
+          try {
+            await connection.db?.admin().ping();
+          } catch {
+            console.warn(`[getProductData] ping failed on attempt ${attempt + 1}, reconnecting…`);
+            connection.close().catch(() => {});
+            const dbConnect = (await import("@/lib/db")).default;
+            await dbConnect();
+          }
         }
       }
 
@@ -133,7 +134,7 @@ async function getProductData(slug: string, retries = 5) {
       if (!product) {
         if (attempt < retries) {
           console.warn(`[getProductData] product "${slug}" returned null on attempt ${attempt + 1}, retrying…`);
-          await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
           continue;
         }
         return null;
@@ -242,7 +243,7 @@ async function getProductData(slug: string, retries = 5) {
     } catch (err) {
       console.error(`getProductData attempt ${attempt + 1} failed:`, err);
       if (attempt === retries) return null;
-      await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
     }
   }
   return null;
@@ -426,16 +427,26 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="mt-2 max-w-prose text-sm leading-relaxed text-charcoal-400">
               {(() => {
                 const lines = product.description.split('\n');
-                const groups: { type: 'text' | 'bullet'; lines: string[] }[] = [];
+                const groups: { type: 'text' | 'bullet' | 'numbered'; lines: string[] }[] = [];
                 lines.forEach((line: string) => {
                   const trimmed = line.trim();
-                  if (/^[-•*]\s+/.test(trimmed)) {
-                    const content = trimmed.replace(/^[-•*]\s+/, '');
+                  // Bullet: lines starting with -, ->, •, * (with or without trailing space)
+                  if (/^(->|[-•*])\s*/.test(trimmed) && trimmed.replace(/^(->|[-•*])\s*/, '').length > 0) {
+                    const content = trimmed.replace(/^(->|[-•*])\s*/, '');
                     const last = groups[groups.length - 1];
                     if (last?.type === 'bullet') {
                       last.lines.push(content);
                     } else {
                       groups.push({ type: 'bullet', lines: [content] });
+                    }
+                  // Numbered list: lines starting with 1. or 1) etc.
+                  } else if (/^\d+[.):]\s*/.test(trimmed) && trimmed.replace(/^\d+[.):]\s*/, '').length > 0) {
+                    const content = trimmed.replace(/^\d+[.):]\s*/, '');
+                    const last = groups[groups.length - 1];
+                    if (last?.type === 'numbered') {
+                      last.lines.push(content);
+                    } else {
+                      groups.push({ type: 'numbered', lines: [content] });
                     }
                   } else if (trimmed) {
                     const last = groups[groups.length - 1];
@@ -453,6 +464,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
                         <li key={j}>{item}</li>
                       ))}
                     </ul>
+                  ) : group.type === 'numbered' ? (
+                    <ol key={i} className="list-decimal list-inside space-y-1 mt-2">
+                      {group.lines.map((item, j) => (
+                        <li key={j}>{item}</li>
+                      ))}
+                    </ol>
                   ) : (
                     <p key={i} className={i > 0 ? 'mt-2' : ''}>
                       {group.lines.join(' ')}

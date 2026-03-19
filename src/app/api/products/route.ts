@@ -146,6 +146,28 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    // Handle duplicate key errors (product was likely created on a previous
+    // attempt whose response timed out — common on Vercel cold starts)
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as unknown as { code: number }).code === 11000
+    ) {
+      try {
+        const body = await request.clone().json().catch(() => null);
+        const existing = body?.productCode
+          ? await Product.findOne({ productCode: body.productCode }).populate("category", "name slug")
+          : null;
+        if (existing) {
+          return NextResponse.json(
+            { success: true, data: existing, message: "Product created successfully" },
+            { status: 201 }
+          );
+        }
+      } catch {
+        // Fall through to generic error
+      }
+    }
     if (error instanceof Error && error.name === "ZodError") {
       return NextResponse.json(
         { success: false, error: "Validation failed", details: error },

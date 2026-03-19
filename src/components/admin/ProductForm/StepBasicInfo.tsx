@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -44,6 +44,30 @@ const COLOR_PRESETS = [
   "Green",
 ];
 
+function parseDescriptionPreview(text: string) {
+  const lines = text.split('\n');
+  const groups: { type: 'text' | 'bullet' | 'numbered'; lines: string[] }[] = [];
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (/^(->|[-•*])\s*/.test(trimmed) && trimmed.replace(/^(->|[-•*])\s*/, '').length > 0) {
+      const content = trimmed.replace(/^(->|[-•*])\s*/, '');
+      const last = groups[groups.length - 1];
+      if (last?.type === 'bullet') last.lines.push(content);
+      else groups.push({ type: 'bullet', lines: [content] });
+    } else if (/^\d+[.):]\s*/.test(trimmed) && trimmed.replace(/^\d+[.):]\s*/, '').length > 0) {
+      const content = trimmed.replace(/^\d+[.):]\s*/, '');
+      const last = groups[groups.length - 1];
+      if (last?.type === 'numbered') last.lines.push(content);
+      else groups.push({ type: 'numbered', lines: [content] });
+    } else if (trimmed) {
+      const last = groups[groups.length - 1];
+      if (last?.type === 'text') last.lines.push(trimmed);
+      else groups.push({ type: 'text', lines: [trimmed] });
+    }
+  });
+  return groups;
+}
+
 export function StepBasicInfo({
   data,
   onChange,
@@ -52,6 +76,7 @@ export function StepBasicInfo({
 }: StepBasicInfoProps) {
   const [sizeInput, setSizeInput] = useState("");
   const [colorInput, setColorInput] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
 
   const {
     register,
@@ -159,13 +184,53 @@ export function StepBasicInfo({
             />
           </div>
 
-          <Textarea
-            label="Description"
-            placeholder="Detailed description of the product...&#10;&#10;Use bullet points by starting a line with - or •&#10;- Feature one&#10;- Feature two"
-            helperText="Start a line with - or • to display it as a bullet point"
-            error={errors.description?.message}
-            {...register("description")}
-          />
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-medium text-charcoal-600">
+                Description
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPreview((p) => !p)}
+                className="inline-flex items-center gap-1 text-xs text-gold-600 hover:text-gold-700 font-medium"
+              >
+                {showPreview ? <EyeOff size={14} /> : <Eye size={14} />}
+                {showPreview ? "Edit" : "Preview"}
+              </button>
+            </div>
+            {showPreview ? (
+              <div className="min-h-25 rounded-lg border border-charcoal-200 bg-charcoal-50 px-3 py-2 text-sm leading-relaxed text-charcoal-600">
+                {(() => {
+                  const desc = watch("description") || "";
+                  if (!desc.trim()) return <span className="text-charcoal-300">Nothing to preview</span>;
+                  const groups = parseDescriptionPreview(desc);
+                  return groups.map((group, i) =>
+                    group.type === 'bullet' ? (
+                      <ul key={i} className="list-disc list-inside space-y-1 mt-2">
+                        {group.lines.map((item, j) => <li key={j}>{item}</li>)}
+                      </ul>
+                    ) : group.type === 'numbered' ? (
+                      <ol key={i} className="list-decimal list-inside space-y-1 mt-2">
+                        {group.lines.map((item, j) => <li key={j}>{item}</li>)}
+                      </ol>
+                    ) : (
+                      <p key={i} className={i > 0 ? 'mt-2' : ''}>{group.lines.join(' ')}</p>
+                    )
+                  );
+                })()}
+              </div>
+            ) : (
+              <Textarea
+                placeholder={"Detailed description of the product...\n\nFormatting tips:\n- Bullet point (start with - or • or ->)\n1. Numbered list (start with 1. or 1))\nPlain text becomes a paragraph"}
+                helperText="Start a line with - or • or -> for bullet points, or 1. for numbered lists"
+                error={errors.description?.message}
+                {...register("description")}
+              />
+            )}
+            {errors.description?.message && showPreview && (
+              <p className="mt-1 text-sm text-error" role="alert">{errors.description.message}</p>
+            )}
+          </div>
 
           {/* Sizes */}
           <div>

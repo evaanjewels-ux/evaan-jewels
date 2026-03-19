@@ -270,6 +270,7 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
       // Retry up to 2 times on network/server failures
       let result = null;
       let lastError = "";
+      const productCode = (payload as Record<string, unknown>).productCode as string | undefined;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const res = await fetch(url, {
@@ -286,6 +287,29 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
 
           lastError = result.error || "Failed to save product";
         } catch {
+          // Network error — for create mode, check if the product was already
+          // created on the server before retrying (the response may have timed
+          // out even though the product was saved successfully).
+          if (mode === "create" && productCode) {
+            try {
+              const checkRes = await fetch(
+                `/api/products?search=${encodeURIComponent(productCode)}&limit=1`,
+                { cache: "no-store" }
+              );
+              const checkData = await checkRes.json();
+              if (
+                checkData.success &&
+                checkData.data?.some(
+                  (p: { productCode: string }) => p.productCode === productCode
+                )
+              ) {
+                result = { success: true, data: checkData.data[0] };
+                break;
+              }
+            } catch {
+              // Check failed — continue with retry
+            }
+          }
           lastError = "Network error — retrying...";
         }
 
