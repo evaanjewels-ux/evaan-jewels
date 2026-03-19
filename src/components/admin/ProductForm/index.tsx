@@ -236,14 +236,22 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         sizes: formData.basic.sizes || [],
         colors: formData.basic.colors || [],
 
-        grossWeight: formData.composition.metals.reduce(
-          (s: number, m: MetalEntry) => s + m.weightInGrams,
-          0
-        ),
         netWeight: formData.composition.metals.reduce(
           (s: number, m: MetalEntry) => s + m.weightInGrams,
           0
         ),
+        grossWeight:
+          formData.composition.metals.reduce(
+            (s: number, m: MetalEntry) => s + m.weightInGrams,
+            0
+          ) +
+          formData.composition.gemstones
+            .filter((g: GemstoneEntry) => g.gemstoneId !== "" && g.variantId !== "")
+            .reduce(
+              // weightInCarats stores value in carats (1 carat = 0.2g)
+              (s: number, g: GemstoneEntry) => s + g.weightInCarats * g.quantity * 0.2,
+              0
+            ),
       };
 
       // For create, generate product code

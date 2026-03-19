@@ -406,22 +406,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </p>
             </div>
           )}
-          {product.grossWeight > 0 && (
-            <div className="rounded-lg bg-charcoal-50 p-3">
-              <p className="text-xs text-charcoal-400">Gross Weight</p>
-              <p className="mt-0.5 font-medium text-charcoal-700">
-                {product.grossWeight}g
-              </p>
-            </div>
-          )}
-          {product.netWeight > 0 && (
-            <div className="rounded-lg bg-charcoal-50 p-3">
-              <p className="text-xs text-charcoal-400">Net Weight</p>
-              <p className="mt-0.5 font-medium text-charcoal-700">
-                {product.netWeight}g
-              </p>
-            </div>
-          )}
+          {/* Gross/Net weight shown dynamically in ProductDetailClient */}
           {product.size && (
             <div className="rounded-lg bg-charcoal-50 p-3">
               <p className="text-xs text-charcoal-400">Size</p>
@@ -438,9 +423,44 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <h3 className="text-sm font-semibold text-charcoal-600">
               Description
             </h3>
-            <p className="mt-2 max-w-prose text-sm leading-relaxed text-charcoal-400">
-              {product.description}
-            </p>
+            <div className="mt-2 max-w-prose text-sm leading-relaxed text-charcoal-400">
+              {(() => {
+                const lines = product.description.split('\n');
+                const groups: { type: 'text' | 'bullet'; lines: string[] }[] = [];
+                lines.forEach((line: string) => {
+                  const trimmed = line.trim();
+                  if (/^[-•*]\s+/.test(trimmed)) {
+                    const content = trimmed.replace(/^[-•*]\s+/, '');
+                    const last = groups[groups.length - 1];
+                    if (last?.type === 'bullet') {
+                      last.lines.push(content);
+                    } else {
+                      groups.push({ type: 'bullet', lines: [content] });
+                    }
+                  } else if (trimmed) {
+                    const last = groups[groups.length - 1];
+                    if (last?.type === 'text') {
+                      last.lines.push(trimmed);
+                    } else {
+                      groups.push({ type: 'text', lines: [trimmed] });
+                    }
+                  }
+                });
+                return groups.map((group, i) =>
+                  group.type === 'bullet' ? (
+                    <ul key={i} className="list-disc list-inside space-y-1 mt-2">
+                      {group.lines.map((item, j) => (
+                        <li key={j}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p key={i} className={i > 0 ? 'mt-2' : ''}>
+                      {group.lines.join(' ')}
+                    </p>
+                  )
+                );
+              })()}
+            </div>
           </div>
         )}
 

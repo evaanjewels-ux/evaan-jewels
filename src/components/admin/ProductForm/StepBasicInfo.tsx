@@ -161,7 +161,8 @@ export function StepBasicInfo({
 
           <Textarea
             label="Description"
-            placeholder="Detailed description of the product..."
+            placeholder="Detailed description of the product...&#10;&#10;Use bullet points by starting a line with - or •&#10;- Feature one&#10;- Feature two"
+            helperText="Start a line with - or • to display it as a bullet point"
             error={errors.description?.message}
             {...register("description")}
           />
