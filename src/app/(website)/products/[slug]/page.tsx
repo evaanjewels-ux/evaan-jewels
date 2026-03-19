@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -23,93 +24,17 @@ interface ProductPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({
-  params,
-}: ProductPageProps): Promise<Metadata> {
-  try {
-    const { slug } = await params;
-
-    // generateMetadata is the FIRST function to run on cold starts,
-    // so warm the DB connection here to benefit the page component.
-    for (let attempt = 0; attempt < 3; attempt++) {
-      await dbConnect();
-      const product = await Product.findOne({ slug, isActive: true })
-        .populate("category", "name slug")
-        .lean();
-
-      if (!product) {
-        if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
-          continue;
-        }
-        return { title: "Product Not Found" };
-      }
-
-    const categoryName =
-      typeof product.category === "object" && product.category !== null
-        ? (product.category as unknown as { name: string }).name
-        : "";
-
-    const description =
-      product.metaDescription ||
-      `Buy ${product.name} — Premium ${categoryName} from Evaan Jewels, Delhi. ${
-        product.metalComposition?.[0]?.variantName || "Gold"
-      } jewelry, BIS Hallmark certified. Price: ${formatCurrency(product.totalPrice)}. ${
-        product.grossWeight > 0 ? `Weight: ${product.grossWeight}g.` : ""
-      } Free shipping & easy exchange.`;
-
-    const url = `${SITE_URL}/products/${slug}`;
-
-    return {
-      title: `${product.name} — ${categoryName} | Buy Online`,
-      description,
-      alternates: { canonical: url },
-      keywords: [
-        product.name.toLowerCase(),
-        categoryName.toLowerCase(),
-        `${categoryName.toLowerCase()} online`,
-        `buy ${categoryName.toLowerCase()}`,
-        product.metalComposition?.[0]?.variantName?.toLowerCase() || "gold",
-        "evaan jewels",
-        "hallmark jewelry",
-        "BIS certified",
-      ].filter(Boolean),
-      openGraph: {
-        title: `${product.name} | Evaan Jewels — Buy Online`,
-        description,
-        url,
-        siteName: "Evaan Jewels",
-        type: "website",
-        images: product.images?.length
-          ? product.images.map((img: string) => ({ url: img, alt: product.name }))
-          : product.thumbnailImage
-            ? [{ url: product.thumbnailImage, alt: product.name }]
-            : [],
-      },
-      twitter: {
-        card: "summary_large_image",
-        title: `${product.name} | Evaan Jewels`,
-        description,
-        images: product.images?.length
-          ? [product.images[0]]
-          : product.thumbnailImage ? [product.thumbnailImage] : [],
-      },
-    };
-    }
-    // All retry attempts exhausted without finding the product
-    return { title: "Product Not Found" };
-  } catch {
-    return { title: "Product" };
-  }
-}
-
-async function getProductData(slug: string, retries = 3) {
+// ─── Shared, deduplicated data fetch ───────────────────────────────
+// React cache() ensures generateMetadata and the page component share
+// the same DB query within a single request — critical on Vercel free
+// tier where the combined retries would otherwise exceed the 10s timeout.
+const getProductData = cache(async (slug: string) => {
+  const retries = 4;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       await dbConnect();
 
-      // Ping on cold starts to ensure the connection is truly live.
-      // Skip on first attempt if we just connected (dbConnect already validates).
+      // On retries, verify the connection is truly alive
       if (attempt > 0) {
         const { connection } = await import("mongoose");
         if (connection.readyState === 1) {
@@ -128,13 +53,10 @@ async function getProductData(slug: string, retries = 3) {
         .populate("category", "name slug")
         .lean();
 
-      // On cold starts, findOne() can return null even for valid slugs because
-      // the connection pool isn't fully warmed.  Retry a few times before
-      // concluding the product genuinely doesn't exist.
       if (!product) {
         if (attempt < retries) {
           console.warn(`[getProductData] product "${slug}" returned null on attempt ${attempt + 1}, retrying…`);
-          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
           continue;
         }
         return null;
@@ -185,8 +107,6 @@ async function getProductData(slug: string, retries = 3) {
       });
 
       // Build variant weight map (variantId -> weightInGrams) for the client.
-      // Start with the original composition weights as defaults, then overlay
-      // admin-specified weights from displayVariants (skip 0 weights).
       const variantWeightMap: Record<string, number> = {};
       for (const mc of (product.metalComposition || []) as { variantId: unknown; weightInGrams: number }[]) {
         if (mc.weightInGrams > 0) {
@@ -201,9 +121,7 @@ async function getProductData(slug: string, retries = 3) {
         }
       }
 
-      // Also resolve chargeBasedOnVariant pricePerGram from the FULL metal data
-      // (not filtered) so the client doesn't lose it when the charge variant
-      // isn't in displayVariants.
+      // Resolve chargeBasedOnVariant pricePerGram from the FULL metal data
       let chargeVariantPricePerGram: number | undefined;
       const cbv = product.chargeBasedOnVariant as { metalId?: unknown; variantId?: unknown } | undefined;
       if (cbv?.metalId) {
@@ -243,10 +161,76 @@ async function getProductData(slug: string, retries = 3) {
     } catch (err) {
       console.error(`getProductData attempt ${attempt + 1} failed:`, err);
       if (attempt === retries) return null;
-      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
     }
   }
   return null;
+});
+
+export async function generateMetadata({
+  params,
+}: ProductPageProps): Promise<Metadata> {
+  try {
+    const { slug } = await params;
+    // Uses the same cached fetch as the page component — no duplicate DB calls
+    const data = await getProductData(slug);
+
+    if (!data) return { title: "Product Not Found" };
+
+    const product = data.product;
+    const categoryName =
+      typeof product.category === "object" && product.category !== null
+        ? (product.category as { name: string }).name
+        : "";
+
+    const description =
+      product.metaDescription ||
+      `Buy ${product.name} — Premium ${categoryName} from Evaan Jewels, Delhi. ${
+        product.metalComposition?.[0]?.variantName || "Gold"
+      } jewelry, BIS Hallmark certified. Price: ${formatCurrency(product.totalPrice)}. ${
+        product.grossWeight > 0 ? `Weight: ${product.grossWeight}g.` : ""
+      } Free shipping & easy exchange.`;
+
+    const url = `${SITE_URL}/products/${slug}`;
+
+    return {
+      title: `${product.name} — ${categoryName} | Buy Online`,
+      description,
+      alternates: { canonical: url },
+      keywords: [
+        product.name.toLowerCase(),
+        categoryName.toLowerCase(),
+        `${categoryName.toLowerCase()} online`,
+        `buy ${categoryName.toLowerCase()}`,
+        product.metalComposition?.[0]?.variantName?.toLowerCase() || "gold",
+        "evaan jewels",
+        "hallmark jewelry",
+        "BIS certified",
+      ].filter(Boolean),
+      openGraph: {
+        title: `${product.name} | Evaan Jewels — Buy Online`,
+        description,
+        url,
+        siteName: "Evaan Jewels",
+        type: "website",
+        images: product.images?.length
+          ? product.images.map((img: string) => ({ url: img, alt: product.name }))
+          : product.thumbnailImage
+            ? [{ url: product.thumbnailImage, alt: product.name }]
+            : [],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: `${product.name} | Evaan Jewels`,
+        description,
+        images: product.images?.length
+          ? [product.images[0]]
+          : product.thumbnailImage ? [product.thumbnailImage] : [],
+      },
+    };
+  } catch {
+    return { title: "Product" };
+  }
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {

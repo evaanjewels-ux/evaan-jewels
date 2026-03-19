@@ -11,6 +11,7 @@ import { breadcrumbJsonLd, collectionPageJsonLd, itemListJsonLd, SITE_URL } from
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
+export const maxDuration = 60;
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;
