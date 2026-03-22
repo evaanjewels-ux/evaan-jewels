@@ -104,6 +104,7 @@ export async function GET(request: NextRequest) {
 
 // POST /api/products — Create a product
 export async function POST(request: NextRequest) {
+  let savedProductCode: string | undefined;
   try {
     await dbConnect();
     const body = await request.json();
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest) {
         Date.now() % 100000
       );
     }
+    savedProductCode = validatedData.productCode;
 
     // Ensure the slug is unique — append a numeric suffix if the base slug is already taken
     (validatedData as Record<string, unknown>).slug = await generateUniqueSlug(validatedData.name);
@@ -134,8 +136,13 @@ export async function POST(request: NextRequest) {
 
     const product = await Product.create({ ...validatedData, ...prices, lastPriceSync: new Date() });
 
-    // Populate category for the response
-    await product.populate("category", "name slug");
+    // Populate category for the response — wrapped in its own try-catch
+    // so a populate timeout doesn't mask the successful creation.
+    try {
+      await product.populate("category", "name slug");
+    } catch {
+      // Product was already created; populate failure is non-critical
+    }
 
     return NextResponse.json(
       {
@@ -154,9 +161,8 @@ export async function POST(request: NextRequest) {
       (error as unknown as { code: number }).code === 11000
     ) {
       try {
-        const body = await request.clone().json().catch(() => null);
-        const existing = body?.productCode
-          ? await Product.findOne({ productCode: body.productCode }).populate("category", "name slug")
+        const existing = savedProductCode
+          ? await Product.findOne({ productCode: savedProductCode }).populate("category", "name slug")
           : null;
         if (existing) {
           return NextResponse.json(

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import dbConnect from "@/lib/db";
 import Product from "@/models/Product";
 import "@/models/Metal";
@@ -97,6 +98,11 @@ export async function PUT(
       );
     }
 
+    // Invalidate the ISR cache for this product page
+    try {
+      revalidatePath(`/products/${product.slug}`);
+    } catch { /* best-effort */ }
+
     return NextResponse.json({
       success: true,
       data: product,
@@ -144,6 +150,11 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    // Invalidate the ISR cache for the deleted product page
+    try {
+      revalidatePath(`/products/${product.slug}`);
+    } catch { /* best-effort */ }
 
     return NextResponse.json({
       success: true,

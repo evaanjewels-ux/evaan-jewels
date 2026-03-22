@@ -16,9 +16,9 @@ import { JsonLd } from "@/components/shared/JsonLd";
 import { formatCurrency, capitalize } from "@/lib/utils";
 import { productJsonLd, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-export const maxDuration = 60;
+// ISR: serve cached pages instantly, revalidate in the background every 30s.
+// This eliminates 404s caused by MongoDB M0 cold-starts on Vercel free tier.
+export const revalidate = 30;
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -26,39 +26,22 @@ interface ProductPageProps {
 
 // ─── Shared, deduplicated data fetch ───────────────────────────────
 // React cache() ensures generateMetadata and the page component share
-// the same DB query within a single request — critical on Vercel free
-// tier where the combined retries would otherwise exceed the 10s timeout.
+// the same DB query within a single request.
 const getProductData = cache(async (slug: string) => {
-  const retries = 4;
-  for (let attempt = 0; attempt <= retries; attempt++) {
+  const MAX_RETRIES = 2;
+  let dbConnected = false;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       await dbConnect();
-
-      // On retries, verify the connection is truly alive
-      if (attempt > 0) {
-        const { connection } = await import("mongoose");
-        if (connection.readyState === 1) {
-          try {
-            await connection.db?.admin().ping();
-          } catch {
-            console.warn(`[getProductData] ping failed on attempt ${attempt + 1}, reconnecting…`);
-            connection.close().catch(() => {});
-            const dbConnect = (await import("@/lib/db")).default;
-            await dbConnect();
-          }
-        }
-      }
+      dbConnected = true;
 
       const product = await Product.findOne({ slug, isActive: true })
         .populate("category", "name slug")
         .lean();
 
       if (!product) {
-        if (attempt < retries) {
-          console.warn(`[getProductData] product "${slug}" returned null on attempt ${attempt + 1}, retrying…`);
-          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
-          continue;
-        }
+        // DB is connected and query succeeded — product genuinely does not exist.
         return null;
       }
 
@@ -160,11 +143,19 @@ const getProductData = cache(async (slug: string) => {
       };
     } catch (err) {
       console.error(`getProductData attempt ${attempt + 1} failed:`, err);
-      if (attempt === retries) return null;
-      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+      if (attempt === MAX_RETRIES) {
+        // All retries exhausted — throw so the error boundary shows "Try Again"
+        // instead of a misleading 404.
+        throw new Error(
+          `Failed to load product "${slug}" after ${MAX_RETRIES + 1} attempts. ` +
+          `DB connected: ${dbConnected}. Please try again.`
+        );
+      }
+      await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
     }
   }
-  return null;
+  // Should never reach here, but satisfy TypeScript.
+  throw new Error(`Failed to load product "${slug}".`);
 });
 
 export async function generateMetadata({

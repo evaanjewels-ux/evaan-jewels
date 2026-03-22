@@ -61,9 +61,10 @@ async function dbConnect(): Promise<typeof mongoose> {
       // prevents intermittent empty results on concurrent requests
       bufferCommands: true,
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 15000,
-      connectTimeoutMS: 15000,
-      socketTimeoutMS: 30000,
+      // Reduced from 15s — fail faster on Vercel so retries have a chance
+      serverSelectionTimeoutMS: 8000,
+      connectTimeoutMS: 8000,
+      socketTimeoutMS: 20000,
       // Retry reads/writes once on transient failures
       retryReads: true,
       retryWrites: true,
