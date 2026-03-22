@@ -1,5 +1,6 @@
 import dbConnect from "@/lib/db";
 import Product from "@/models/Product";
+import "@/models/Category";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { ProductCard } from "@/components/website/ProductCard";
 import { JsonLd } from "@/components/shared/JsonLd";

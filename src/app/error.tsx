@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Error({
   error,
@@ -9,9 +10,19 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
+
   useEffect(() => {
     console.error("Application error:", error);
   }, [error]);
+
+  const handleRetry = () => {
+    // reset() alone doesn't re-fetch server components reliably.
+    // router.refresh() forces a full server re-render of the current route,
+    // then reset() clears the error boundary so the new content shows.
+    router.refresh();
+    reset();
+  };
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
@@ -33,7 +44,7 @@ export default function Error({
         persists.
       </p>
       <button
-        onClick={reset}
+        onClick={handleRetry}
         className="mt-6 inline-flex items-center justify-center rounded-lg bg-gold-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-gold-600 active:scale-[0.97]"
       >
         Try Again

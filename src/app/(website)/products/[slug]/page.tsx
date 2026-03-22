@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import dbConnect from "@/lib/db";
 import Product from "@/models/Product";
+// Side-effect import: registers the Category model with Mongoose so
+// .populate("category") works on cold serverless invocations.
+import "@/models/Category";
 import Metal from "@/models/Metal";
 import Gemstone from "@/models/Gemstone";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
@@ -17,8 +20,9 @@ import { formatCurrency, capitalize } from "@/lib/utils";
 import { productJsonLd, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
 
 // ISR: serve cached pages instantly, revalidate in the background every 30s.
-// This eliminates 404s caused by MongoDB M0 cold-starts on Vercel free tier.
 export const revalidate = 30;
+// Allow up to 60s for the serverless function (needed for cold-start DB queries).
+export const maxDuration = 60;
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
