@@ -308,23 +308,6 @@ export function ProductDetailClient({
     }));
   }, [product.gemstoneComposition, selectedGemstone]);
 
-  // ─── Dynamic weight calculations ─────────────────
-  // Net weight = sum of selected variant weights (updates when variant changes)
-  const dynamicNetWeight = useMemo(() => {
-    return parseFloat(
-      displayMetalComposition.reduce((sum, mc) => sum + mc.weightInGrams, 0).toFixed(3)
-    );
-  }, [displayMetalComposition]);
-
-  // Gross weight = net gold weight + stone weight (1 carat = 0.2g)
-  const dynamicGrossWeight = useMemo(() => {
-    const stoneWeight = displayGemstoneComposition.reduce(
-      (sum, gc) => sum + gc.weightInCarats * gc.quantity * 0.2,
-      0
-    );
-    return parseFloat((dynamicNetWeight + stoneWeight).toFixed(3));
-  }, [dynamicNetWeight, displayGemstoneComposition]);
-
   // ─── Gallery images (filtered by color) ─────────
   const galleryImages = useMemo(() => {
     if (selectedColor && product.colorImages?.length > 0) {
@@ -461,17 +444,39 @@ export function ProductDetailClient({
   return (
     <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
       {/* Gallery */}
-      <ProductGallery
-        images={galleryImages}
-        productName={product.name}
-        videos={product.videos}
-      />
+      <div className="min-w-0">
+        <ProductGallery
+          images={galleryImages}
+          productName={product.name}
+          videos={product.videos}
+        />
+      </div>
 
       {/* Details */}
-      <div className="flex flex-col">
+      <div className="flex min-w-0 flex-col">
+        {/* Price */}
+        <div className="mt-4">
+          <PriceBreakdown
+            product={{
+              metalComposition: displayMetalComposition,
+              gemstoneComposition: displayGemstoneComposition,
+              metalTotal: calculatedPrices.metalTotal,
+              gemstoneTotal: calculatedPrices.gemstoneTotal,
+              makingChargeAmount: calculatedPrices.makingChargeAmount,
+              wastageChargeAmount: calculatedPrices.wastageChargeAmount,
+              otherCharges: product.otherCharges,
+              otherChargesTotal: calculatedPrices.otherChargesTotal,
+              subtotal: calculatedPrices.subtotal,
+              gstPercentage: product.gstPercentage,
+              gstAmount: calculatedPrices.gstAmount,
+              totalPrice: calculatedPrices.totalPrice,
+            }}
+          />
+        </div>
+
         {/* Metal Variant Switcher */}
         {hasVariantSwitcher && (
-          <div className="mt-4 space-y-4">
+          <div className="mt-6 space-y-4">
             <h3 className="text-sm font-semibold text-charcoal-600">
               Metal Variant
             </h3>
@@ -563,6 +568,40 @@ export function ProductDetailClient({
           </div>
         )}
 
+        {/* Size Selector */}
+        {hasSizes && (
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-sm font-semibold text-charcoal-600">Size</h3>
+              {selectedSize ? (
+                <span className="text-xs font-medium text-gold-600 bg-gold-50 border border-gold-200 rounded-full px-2 py-0.5">
+                  {selectedSize}
+                </span>
+              ) : (
+                <span className="text-xs text-rose-500">— please select</span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {product.sizes.map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() =>
+                    setSelectedSize(size === selectedSize ? null : size)
+                  }
+                  className={`rounded-lg border px-3.5 py-2 text-sm font-medium transition-all duration-150 ${
+                    selectedSize === size
+                      ? "border-gold-500 bg-gold-500 text-white shadow-sm"
+                      : "border-charcoal-200 bg-white text-charcoal-700 hover:border-gold-400 hover:bg-gold-50"
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Color Selector */}
         {hasColors && (
           <div className="mt-6">
@@ -593,64 +632,6 @@ export function ProductDetailClient({
                   {color}
                 </button>
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* Size Selector (dropdown) */}
-        {hasSizes && (
-          <div className="mt-6">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-sm font-semibold text-charcoal-600">Size</h3>
-              {!selectedSize && (
-                <span className="text-xs text-rose-500">— please select</span>
-              )}
-            </div>
-            <select
-              value={selectedSize || ""}
-              onChange={(e) => setSelectedSize(e.target.value || null)}
-              className="w-full rounded-lg border border-charcoal-200 bg-white px-3.5 py-2.5 text-sm font-medium text-charcoal-700 transition-all duration-150 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M2%204l4%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-size-[12px] bg-position-[right_12px_center] bg-no-repeat pr-8"
-            >
-              <option value="">Select a size</option>
-              {product.sizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Price */}
-        <div className="mt-6">
-          <PriceBreakdown
-            product={{
-              metalComposition: displayMetalComposition,
-              gemstoneComposition: displayGemstoneComposition,
-              metalTotal: calculatedPrices.metalTotal,
-              gemstoneTotal: calculatedPrices.gemstoneTotal,
-              makingChargeAmount: calculatedPrices.makingChargeAmount,
-              wastageChargeAmount: calculatedPrices.wastageChargeAmount,
-              otherCharges: product.otherCharges,
-              otherChargesTotal: calculatedPrices.otherChargesTotal,
-              subtotal: calculatedPrices.subtotal,
-              gstPercentage: product.gstPercentage,
-              gstAmount: calculatedPrices.gstAmount,
-              totalPrice: calculatedPrices.totalPrice,
-            }}
-          />
-        </div>
-
-        {/* Dynamic Weight Details */}
-        {dynamicNetWeight > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            <div className="rounded-lg bg-charcoal-50 px-3 py-2">
-              <p className="text-xs text-charcoal-400">Net Gold Weight</p>
-              <p className="mt-0.5 text-sm font-medium text-charcoal-700">{dynamicNetWeight}g</p>
-            </div>
-            <div className="rounded-lg bg-charcoal-50 px-3 py-2">
-              <p className="text-xs text-charcoal-400">Gross Weight</p>
-              <p className="mt-0.5 text-sm font-medium text-charcoal-700">{dynamicGrossWeight}g</p>
             </div>
           </div>
         )}

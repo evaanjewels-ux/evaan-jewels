@@ -71,7 +71,7 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
   const activeItem = mediaItems[safeIndex];
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 max-w-full flex-col gap-3">
       {/* Main Media */}
       <div className="group relative aspect-square overflow-hidden rounded-xl bg-charcoal-50">
         <AnimatePresence mode="wait">
@@ -90,7 +90,7 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
                 className={cn(
-                  "object-cover transition-transform duration-500",
+                  "object-contain sm:object-cover transition-transform duration-500",
                   isZoomed && "scale-150 cursor-zoom-out"
                 )}
                 priority={activeIndex === 0}
@@ -171,7 +171,7 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
 
       {/* Thumbnails */}
       {mediaItems.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex w-full max-w-full gap-2 overflow-x-auto pb-1">
           {mediaItems.map((item, idx) => (
             <button
               key={idx}
@@ -189,7 +189,7 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
                   alt={`${productName} — Thumbnail ${idx + 1}`}
                   fill
                   sizes="80px"
-                  className="object-cover"
+                  className="object-contain p-1"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-charcoal-100">
