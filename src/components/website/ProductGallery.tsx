@@ -39,10 +39,7 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
   // Build combined media list: images first, then videos
   const mediaItems = useMemo(() => {
     const items: Array<{ kind: "image"; src: string } | { kind: "video"; video: VideoItem }> = [];
-    images
-      .map((src) => (typeof src === "string" ? src.trim() : ""))
-      .filter((src) => !!src)
-      .forEach((src) => items.push({ kind: "image", src }));
+    images.forEach((src) => items.push({ kind: "image", src }));
     videos.forEach((video) => items.push({ kind: "video", video }));
     return items;
   }, [images, videos]);
@@ -74,9 +71,9 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
   const activeItem = mediaItems[safeIndex];
 
   return (
-    <div className="flex min-w-0 max-w-full flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       {/* Main Media */}
-      <div className="group relative aspect-square overflow-hidden rounded-xl bg-charcoal-50">
+      <div className="group relative aspect-square w-full overflow-hidden rounded-xl bg-charcoal-50">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeIndex}
@@ -93,7 +90,7 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
                 className={cn(
-                  "object-contain sm:object-cover transition-transform duration-500",
+                  "object-contain transition-transform duration-500",
                   isZoomed && "scale-150 cursor-zoom-out"
                 )}
                 priority={activeIndex === 0}
@@ -174,7 +171,7 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
 
       {/* Thumbnails */}
       {mediaItems.length > 1 && (
-        <div className="flex w-full max-w-full gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
           {mediaItems.map((item, idx) => (
             <button
               key={idx}
@@ -192,7 +189,7 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
                   alt={`${productName} — Thumbnail ${idx + 1}`}
                   fill
                   sizes="80px"
-                  className="object-contain p-1"
+                  className="object-cover"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-charcoal-100">

@@ -158,6 +158,21 @@ h3, h4, h5, h6 {
   background: var(--charcoal-300);
 }
 
+/* ─── Thin scrollbar utility ─── */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--charcoal-200);
+  border-radius: 2px;
+}
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
 /* ─── Skeleton Animation ─── */
 @keyframes shimmer {
   0% { background-position: -200% 0; }

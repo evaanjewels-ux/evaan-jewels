@@ -310,24 +310,18 @@ export function ProductDetailClient({
 
   // ─── Gallery images (filtered by color) ─────────
   const galleryImages = useMemo(() => {
-    const sanitizeImages = (input: string[] | undefined) =>
-      (input || [])
-        .map((url) => (typeof url === "string" ? url.trim() : ""))
-        .filter((url) => !!url && url !== "null" && url !== "undefined");
-
     if (selectedColor && product.colorImages?.length > 0) {
       const colorEntry = product.colorImages.find(
         (ci) => ci.color === selectedColor
       );
       if (colorEntry && colorEntry.images.length > 0) {
-        const sanitizedColorImages = sanitizeImages(colorEntry.images);
-        if (sanitizedColorImages.length > 0) return sanitizedColorImages;
+        return colorEntry.images;
       }
     }
     // Fallback to general images
-    const sanitizedProductImages = sanitizeImages(product.images);
-    if (sanitizedProductImages.length > 0) return sanitizedProductImages;
-    return sanitizeImages([product.thumbnailImage]);
+    return product.images?.length > 0
+      ? product.images
+      : [product.thumbnailImage].filter(Boolean);
   }, [selectedColor, product.colorImages, product.images, product.thumbnailImage]);
 
   // ─── Variant change handler ─────────────────────
@@ -448,7 +442,7 @@ export function ProductDetailClient({
   const inWishlist = isInWishlist(product._id);
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
+    <div className="grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-12">
       {/* Gallery */}
       <div className="min-w-0">
         <ProductGallery
