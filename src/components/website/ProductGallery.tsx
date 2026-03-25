@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useMemo, useEffect } from "react";
-import { ChevronLeft, ChevronRight, ZoomIn, Play } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight, ZoomIn, Play, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -35,11 +35,19 @@ function getEmbedUrl(url: string): string | null {
 export function ProductGallery({ images, productName, videos = [] }: ProductGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [failedSrcs, setFailedSrcs] = useState<Set<string>>(new Set());
+
+  const handleImageError = useCallback((src: string) => {
+    setFailedSrcs((prev) => new Set(prev).add(src));
+  }, []);
 
   // Build combined media list: images first, then videos
+  // Filter out empty/whitespace-only URLs to prevent Next.js Image crashes
   const mediaItems = useMemo(() => {
     const items: Array<{ kind: "image"; src: string } | { kind: "video"; video: VideoItem }> = [];
-    images.forEach((src) => items.push({ kind: "image", src }));
+    images
+      .filter((src) => src && src.trim().length > 0)
+      .forEach((src) => items.push({ kind: "image", src }));
     videos.forEach((video) => items.push({ kind: "video", video }));
     return items;
   }, [images, videos]);
@@ -84,6 +92,12 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
             className="relative h-full w-full"
           >
             {activeItem.kind === "image" ? (
+              failedSrcs.has(activeItem.src) ? (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-charcoal-300">
+                  <ImageOff className="h-12 w-12" />
+                  <span className="text-xs">Image unavailable</span>
+                </div>
+              ) : (
               <Image
                 src={activeItem.src}
                 alt={`${productName} — Image ${safeIndex + 1}`}
@@ -95,7 +109,9 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
                 )}
                 priority={activeIndex === 0}
                 onClick={() => setIsZoomed(!isZoomed)}
+                onError={() => handleImageError(activeItem.src)}
               />
+              )
             ) : activeItem.video.type === "upload" ? (
               <video
                 src={activeItem.video.url}
@@ -184,13 +200,20 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
               )}
             >
               {item.kind === "image" ? (
+                failedSrcs.has(item.src) ? (
+                  <div className="flex h-full w-full items-center justify-center bg-charcoal-100">
+                    <ImageOff size={14} className="text-charcoal-300" />
+                  </div>
+                ) : (
                 <Image
                   src={item.src}
                   alt={`${productName} — Thumbnail ${idx + 1}`}
                   fill
                   sizes="80px"
                   className="object-cover"
+                  onError={() => handleImageError(item.src)}
                 />
+                )
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-charcoal-100">
                   <Play size={16} className="text-charcoal-500" />

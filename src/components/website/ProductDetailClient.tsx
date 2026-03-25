@@ -310,17 +310,21 @@ export function ProductDetailClient({
 
   // ─── Gallery images (filtered by color) ─────────
   const galleryImages = useMemo(() => {
+    const filterValid = (urls: string[]) => urls.filter((u) => u && u.trim().length > 0);
+
     if (selectedColor && product.colorImages?.length > 0) {
       const colorEntry = product.colorImages.find(
         (ci) => ci.color === selectedColor
       );
-      if (colorEntry && colorEntry.images.length > 0) {
-        return colorEntry.images;
+      if (colorEntry) {
+        const valid = filterValid(colorEntry.images);
+        if (valid.length > 0) return valid;
       }
     }
-    // Fallback to general images
-    return product.images?.length > 0
-      ? product.images
+    // Fallback to general images, filtering out empty strings
+    const validImages = filterValid(product.images || []);
+    return validImages.length > 0
+      ? validImages
       : [product.thumbnailImage].filter(Boolean);
   }, [selectedColor, product.colorImages, product.images, product.thumbnailImage]);
 
