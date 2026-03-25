@@ -35,34 +35,23 @@ function getEmbedUrl(url: string): string | null {
 export function ProductGallery({ images, productName, videos = [] }: ProductGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
-  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
-
-  const markImageAsFailed = (src: string) => {
-    setFailedImages((prev) => {
-      if (prev.has(src)) return prev;
-      const next = new Set(prev);
-      next.add(src);
-      return next;
-    });
-  };
 
   // Build combined media list: images first, then videos
   const mediaItems = useMemo(() => {
     const items: Array<{ kind: "image"; src: string } | { kind: "video"; video: VideoItem }> = [];
     images
       .map((src) => (typeof src === "string" ? src.trim() : ""))
-      .filter((src) => !!src && !failedImages.has(src))
+      .filter((src) => !!src)
       .forEach((src) => items.push({ kind: "image", src }));
     videos.forEach((video) => items.push({ kind: "video", video }));
     return items;
-  }, [images, videos, failedImages]);
+  }, [images, videos]);
 
   // Reset activeIndex when the images list changes (e.g. color variant switch)
   // to prevent accessing an out-of-bounds index (crash: cannot read 'kind' of undefined).
   useEffect(() => {
     setActiveIndex(0);
     setIsZoomed(false);
-    setFailedImages(new Set());
   }, [images]);
 
   const goTo = (index: number) => {
@@ -108,7 +97,6 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
                   isZoomed && "scale-150 cursor-zoom-out"
                 )}
                 priority={activeIndex === 0}
-                onError={() => markImageAsFailed(activeItem.src)}
                 onClick={() => setIsZoomed(!isZoomed)}
               />
             ) : activeItem.video.type === "upload" ? (
@@ -205,7 +193,6 @@ export function ProductGallery({ images, productName, videos = [] }: ProductGall
                   fill
                   sizes="80px"
                   className="object-contain p-1"
-                  onError={() => markImageAsFailed(item.src)}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-charcoal-100">
