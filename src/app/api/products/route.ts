@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Product from "@/models/Product";
+import "@/models/Category";
 import { productCreateSchema } from "@/lib/validators/product";
 import { ITEMS_PER_PAGE } from "@/constants";
 import { generateProductCode, slugify } from "@/lib/utils";

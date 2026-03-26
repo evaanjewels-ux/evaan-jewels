@@ -55,7 +55,8 @@ CategorySchema.virtual("productCount", {
 });
 
 // Indexes
-CategorySchema.index({ slug: 1 }, { unique: true });
+// Note: slug already has `unique: true` in the schema definition above,
+// which auto-creates an index. Only add the non-duplicate index here.
 CategorySchema.index({ order: 1 });
 
 const Category: Model<ICategory> =

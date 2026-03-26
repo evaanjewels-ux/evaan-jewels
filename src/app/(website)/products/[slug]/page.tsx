@@ -6,6 +6,7 @@ import dbConnect from "@/lib/db";
 import Product from "@/models/Product";
 import Metal from "@/models/Metal";
 import Gemstone from "@/models/Gemstone";
+import "@/models/Category";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { Badge } from "@/components/ui/Badge";
 import { ProductDetailClient } from "@/components/website/ProductDetailClient";

@@ -1,5 +1,12 @@
 import mongoose from "mongoose";
 
+// Register all Mongoose models upfront so .populate() never hits
+// MissingSchemaError on Vercel cold-starts (serverless isolation).
+import "@/models/Category";
+import "@/models/Metal";
+import "@/models/Gemstone";
+import "@/models/Product";
+
 const MONGODB_URI = process.env.MONGODB_URI!;
 
 if (!MONGODB_URI) {
