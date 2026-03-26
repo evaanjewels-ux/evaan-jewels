@@ -8,7 +8,6 @@ import { Menu, X, Phone, MapPin, Globe, Heart } from "lucide-react";
 import { useWishlist } from "@/components/providers/WishlistProvider";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/Logo";
-import { CartIcon } from "@/components/website/CartIcon";
 import { WEBSITE_NAV_ITEMS } from "@/constants/navigation";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 
@@ -124,7 +123,7 @@ Uttam Nagar, Delhi — 110059 </span>
             })}
           </nav>
 
-          {/* Desktop CTA + Cart + Wishlist + Language Toggle */}
+          {/* Desktop CTA + Wishlist + Language Toggle */}
           <div className="hidden items-center gap-3 md:flex">
             <Link
               href="/wishlist"
@@ -138,7 +137,6 @@ Uttam Nagar, Delhi — 110059 </span>
                 </span>
               )}
             </Link>
-            <CartIcon />
             <a
               href="https://wa.me/919654148574?text=Hi%20Evaan%20Jewels%2C%20I%27m%20interested%20in%20your%20jewelry%20collection."
               target="_blank"
@@ -149,7 +147,7 @@ Uttam Nagar, Delhi — 110059 </span>
             </a>
           </div>
 
-          {/* Mobile: Cart + Wishlist + Language Toggle + Menu */}
+          {/* Mobile: Wishlist + Language Toggle + Menu */}
           <div className="flex items-center gap-2 md:hidden">
             <Link
               href="/wishlist"
@@ -163,7 +161,6 @@ Uttam Nagar, Delhi — 110059 </span>
                 </span>
               )}
             </Link>
-            <CartIcon />
             <button
               onClick={toggleLanguage}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-charcoal-300 transition-colors hover:bg-white/10"

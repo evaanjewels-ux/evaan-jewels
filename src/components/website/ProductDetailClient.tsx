@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { ShoppingCart, Phone, MessageCircle, Heart } from "lucide-react";
-import { useCart } from "@/components/providers/CartProvider";
+import { Phone, MessageCircle, Heart } from "lucide-react";
 import { useWishlist } from "@/components/providers/WishlistProvider";
 import { ProductGallery } from "./ProductGallery";
 import { PriceBreakdown } from "./PriceBreakdown";
 import { formatCurrency } from "@/lib/utils";
-import type { ICartItem, IMetalComposition, IGemstoneComposition } from "@/types";
+import type { IMetalComposition, IGemstoneComposition } from "@/types";
 import { calculateProductPrice } from "@/lib/pricing";
 
 /* ─── Metal variant info from the API ─── */
@@ -114,7 +113,6 @@ interface ProductDetailClientProps {
   availableGemstones: AvailableGemstone[];
   displayGemstoneOptions: DisplayGemstoneOption[];
   chargeVariantPricePerGram?: number;
-  whatsappMessage: string;
 }
 
 /* ─── Helper: resolve metal ref _id ─── */
@@ -131,9 +129,7 @@ export function ProductDetailClient({
   availableGemstones,
   displayGemstoneOptions,
   chargeVariantPricePerGram,
-  whatsappMessage,
 }: ProductDetailClientProps) {
-  const { addItem } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
 
   // ─── Selection state ─────────────────────────
@@ -368,70 +364,60 @@ export function ProductDetailClient({
     [availableGemstones]
   );
 
-  // ─── Add to cart ────────────────────────────────
-  const missingSelection =
-    (hasSizes && !selectedSize) || (hasColors && !selectedColor);
+  // ─── Dynamic WhatsApp enquiry message ────────────────────
+  const dynamicWhatsappMessage = useMemo(() => {
+    const lines: string[] = [
+      `Hi Evaan Jewels! I'm interested in:`,
+      `Product: ${product.name} (${product.productCode})`,
+    ];
 
-  const handleAdd = () => {
-    if (product.isOutOfStock || missingSelection) return;
+    // Metal variants selected
+    displayMetalComposition.forEach((mc) => {
+      const metalRef = product.metalComposition.find(
+        (c) => c.variantName === mc.variantName || c.variantId === mc.variantName
+      );
+      const metalName =
+        metalRef && typeof metalRef.metal === "object"
+          ? (metalRef.metal as { _id: string; name: string }).name
+          : availableMetals.find((m) =>
+              product.metalComposition.some(
+                (c) => getMetalId(c.metal) === m._id && c.variantName === mc.variantName
+              )
+            )?.name || "Metal";
+      lines.push(`${metalName}: ${mc.variantName} — ${mc.weightInGrams}g`);
+    });
 
-    // Build variant key for unique cart item identification
-    const variantKey = Object.entries(selectedVariants)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([, v]) => v.variantId)
-      .join("-");
-    const gemstoneKey = selectedGemstone
-      ? `${selectedGemstone.gemstone}:${selectedGemstone.variantId}`
-      : "default";
+    // Gemstone selected
+    if (selectedGemstone) {
+      const gemData = availableGemstones.find((g) => g._id === selectedGemstone.gemstone);
+      const gemLabel = gemData?.name
+        ? `${gemData.name}${gemData.name !== selectedGemstone.variantName ? ` (${selectedGemstone.variantName})` : ""}`
+        : selectedGemstone.variantName;
+      lines.push(`Gemstone: ${gemLabel} — ${selectedGemstone.weightInCarats}ct × ${selectedGemstone.quantity}`);
+    } else if (displayGemstoneComposition.length > 0 && displayGemstoneComposition[0].variantName) {
+      lines.push(`Gemstone: ${displayGemstoneComposition[0].variantName} — ${displayGemstoneComposition[0].weightInCarats}ct`);
+    }
 
-    const cartItemId = `${product._id}|${selectedSize ?? ""}|${selectedColor ?? ""}|${variantKey}|${gemstoneKey}`;
+    if (selectedSize) lines.push(`Size: ${selectedSize}`);
+    if (selectedColor) lines.push(`Color: ${selectedColor}`);
 
-    const item: ICartItem = {
-      cartItemId,
-      productId: product._id,
-      name: product.name,
-      slug: product.slug,
-      productCode: product.productCode,
-      thumbnailImage: galleryImages[0] || product.thumbnailImage,
-      totalPrice: calculatedPrices.totalPrice,
-      quantity: 1,
-      category: product.category?.name,
-      metalComposition: displayMetalComposition.map((mc) => ({
-        variantName: mc.variantName,
-        weightInGrams: mc.weightInGrams,
-      })),
-      selectedSize: selectedSize ?? undefined,
-      selectedColor: selectedColor ?? undefined,
-      selectedMetalVariants: Object.entries(selectedVariants).map(
-        ([metalId, v]) => {
-          const metalData = availableMetals.find((m) => m._id === metalId);
-          return {
-            metalId,
-            metalName: metalData?.name || "",
-            variantId: v.variantId,
-            variantName: v.variantName,
-            pricePerGram: v.pricePerGram,
-            weightInGrams: v.weightInGrams,
-          };
-        }
-      ),
-      selectedGemstone: selectedGemstone
-        ? {
-            gemstoneId: selectedGemstone.gemstone,
-            gemstoneName:
-              availableGemstones.find((g) => g._id === selectedGemstone.gemstone)
-                ?.name || "",
-            variantId: selectedGemstone.variantId,
-            variantName: selectedGemstone.variantName,
-            weightInCarats: selectedGemstone.weightInCarats,
-            quantity: selectedGemstone.quantity,
-            pricePerCarat: selectedGemstone.pricePerCarat,
-          }
-        : undefined,
-    };
+    lines.push(`Price: ${formatCurrency(calculatedPrices.totalPrice)}`);
+    lines.push(`\nPlease share more details. Thank you!`);
 
-    addItem(item);
-  };
+    return encodeURIComponent(lines.join("\n"));
+  }, [
+    product.name,
+    product.productCode,
+    product.metalComposition,
+    displayMetalComposition,
+    displayGemstoneComposition,
+    selectedGemstone,
+    availableMetals,
+    availableGemstones,
+    selectedSize,
+    selectedColor,
+    calculatedPrices.totalPrice,
+  ]);
 
   // ─── Wishlist ─────────────────────────────────────
   const wishlistItem = {
@@ -642,34 +628,16 @@ export function ProductDetailClient({
 
         {/* CTA Buttons */}
         <div className="mt-6 flex flex-col gap-3">
-          {product.isOutOfStock ? (
-            <button
-              disabled
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-charcoal-200 text-charcoal-400 cursor-not-allowed font-medium px-6 py-3.5 text-sm"
-            >
-              Out of Stock
-            </button>
-          ) : (
-            <button
-              onClick={handleAdd}
-              disabled={missingSelection}
-              title={
-                missingSelection
-                  ? `Please select ${!selectedSize && hasSizes ? "a size" : "a color"} first`
-                  : "Add to cart"
-              }
-              className={`inline-flex items-center justify-center gap-2 rounded-lg font-semibold px-6 py-3.5 text-sm transition-all duration-200 ${
-                missingSelection
-                  ? "bg-charcoal-200 text-charcoal-400 cursor-not-allowed"
-                  : "bg-gold-500 text-white shadow-sm hover:bg-gold-600 hover:shadow-md active:scale-[0.97]"
-              }`}
-            >
-              <ShoppingCart className="h-4 w-4" />
-              {missingSelection
-                ? `Select ${!selectedSize && hasSizes ? "Size" : "Color"} First`
-                : `Add to Cart — ${formatCurrency(calculatedPrices.totalPrice)}`}
-            </button>
-          )}
+          {/* Primary: WhatsApp enquiry with dynamic message containing selected variants */}
+          <a
+            href={`https://wa.me/919654148574?text=${dynamicWhatsappMessage}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#25D366] text-white font-semibold px-6 py-3.5 text-sm shadow-sm transition-all duration-200 hover:bg-[#20bd5a] hover:shadow-md active:scale-[0.97]"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Enquire on WhatsApp — {product.isOutOfStock ? "Out of Stock" : formatCurrency(calculatedPrices.totalPrice)}
+          </a>
 
           <div className="flex gap-3">
             <button
@@ -685,15 +653,6 @@ export function ProductDetailClient({
                 className={`h-4 w-4 ${inWishlist ? "fill-current" : ""}`}
               />
             </button>
-            <a
-              href={`https://wa.me/919654148574?text=${whatsappMessage}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-charcoal-200 px-6 py-3 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
-            >
-              <MessageCircle className="h-4 w-4" />
-              WhatsApp
-            </a>
             <a
               href="tel:+919654148574"
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-charcoal-200 px-6 py-3 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"

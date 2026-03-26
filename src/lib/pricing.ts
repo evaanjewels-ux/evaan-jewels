@@ -55,9 +55,11 @@ export function calculateProductPrice(
   // back to chargeBasedOnVariant.pricePerGram passed in by the caller.
   let chargePricePerGram: number | undefined;
   if (input.chargeBasedOnVariant) {
+    // Match by variantId first, fall back to variantName if IDs are stale
     const match = input.metalComposition.find(
       (c) =>
-        String(c.variantId) === String(input.chargeBasedOnVariant!.variantId)
+        String(c.variantId) === String(input.chargeBasedOnVariant!.variantId) ||
+        (c.variantName && c.variantName === input.chargeBasedOnVariant!.variantName)
     );
     chargePricePerGram =
       match?.pricePerGram ?? input.chargeBasedOnVariant.pricePerGram;

@@ -111,29 +111,63 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Find and update all affected products
+    //    Match by (entity + variantName) using $elemMatch — variantName is stable
+    //    even when variant ObjectIds go stale after re-saving a metal/gemstone.
     //    a) Products whose composition uses this variant directly
     //    b) Products whose chargeBasedOnVariant points to this variant
-    //       (their making/wastage charges depend on this variant's price)
+    //    c) Products whose displayGemstones contain this gemstone variant
     const compositionField =
       entityType === "metal" ? "metalComposition" : "gemstoneComposition";
     const entityField = entityType === "metal" ? "metal" : "gemstone";
 
     const compositionQuery = {
-      [`${compositionField}.${entityField}`]: entityId,
-      [`${compositionField}.variantId`]: variantId,
+      [compositionField]: {
+        $elemMatch: {
+          [entityField]: entityId,
+          $or: [
+            { variantName: variantName },
+            { variantId: variantId },
+          ],
+        },
+      },
     };
 
     // Products that use this variant as their charge calculation base
     const chargeVariantQuery =
       entityType === "metal"
         ? {
-            "chargeBasedOnVariant.variantId": variantId,
+            "chargeBasedOnVariant.metalId": entityId,
+            $or: [
+              { "chargeBasedOnVariant.variantName": variantName },
+              { "chargeBasedOnVariant.variantId": variantId },
+            ],
           }
         : null;
 
-    // Combine both queries — avoid duplicates via $or
-    const productQuery = chargeVariantQuery
-      ? { $or: [compositionQuery, chargeVariantQuery] }
+    // Products with displayGemstones referencing this gemstone variant
+    const displayGemstonesQuery =
+      entityType === "gemstone"
+        ? {
+            displayGemstones: {
+              $elemMatch: {
+                gemstone: entityId,
+                $or: [
+                  { variantName: variantName },
+                  { variantId: variantId },
+                ],
+              },
+            },
+          }
+        : null;
+
+    // Combine all queries — avoid duplicates via $or
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const orQueries: Record<string, any>[] = [compositionQuery];
+    if (chargeVariantQuery) orQueries.push(chargeVariantQuery);
+    if (displayGemstonesQuery) orQueries.push(displayGemstonesQuery);
+
+    const productQuery = orQueries.length > 1
+      ? { $or: orQueries }
       : compositionQuery;
 
     const products = await Product.find(productQuery);
@@ -141,33 +175,93 @@ export async function POST(request: NextRequest) {
     let syncedCount = 0;
 
     for (const product of products) {
-      // Update the composition entry with the new price (if this variant is in composition)
+      let changed = false;
+
+      // Helper to match by variantName or fallback to variantId
+      const matchesVariant = (name: string | undefined, id: string | undefined) =>
+        (name && name === variantName) || (id && id === variantId);
+
+      // Update the composition entry with the new price (match by variantName or variantId)
       if (entityType === "metal") {
         for (const comp of product.metalComposition) {
           if (
             comp.metal.toString() === entityId &&
-            comp.variantId.toString() === variantId
+            matchesVariant(comp.variantName, comp.variantId?.toString())
           ) {
             comp.pricePerGram = price;
             comp.subtotal = Math.round(comp.weightInGrams * price * 100) / 100;
+            // Fix stale variantId to the current variant's _id
+            if (comp.variantId.toString() !== variantId) {
+              comp.variantId = variantId as unknown as import("mongoose").Types.ObjectId;
+            }
+            // Backfill variantName if missing
+            if (!comp.variantName) {
+              comp.variantName = variantName;
+            }
+            changed = true;
           }
         }
       } else {
         for (const comp of product.gemstoneComposition) {
           if (
             comp.gemstone.toString() === entityId &&
-            comp.variantId.toString() === variantId
+            matchesVariant(comp.variantName, comp.variantId?.toString())
           ) {
             comp.pricePerCarat = price;
             comp.subtotal =
               Math.round(
                 comp.weightInCarats * comp.quantity * price * 100
               ) / 100;
+            // Fix stale variantId
+            if (comp.variantId.toString() !== variantId) {
+              comp.variantId = variantId as unknown as import("mongoose").Types.ObjectId;
+            }
+            // Backfill variantName if missing
+            if (!comp.variantName) {
+              comp.variantName = variantName;
+            }
+            changed = true;
+          }
+        }
+      }
+
+      // Fix stale chargeBasedOnVariant.variantId (match by name or ID)
+      if (
+        entityType === "metal" &&
+        product.chargeBasedOnVariant?.metalId === entityId &&
+        matchesVariant(product.chargeBasedOnVariant?.variantName, product.chargeBasedOnVariant?.variantId)
+      ) {
+        const cbvRef = product.chargeBasedOnVariant!;
+        if (cbvRef.variantId !== variantId) {
+          cbvRef.variantId = variantId;
+        }
+        if (!cbvRef.variantName) {
+          cbvRef.variantName = variantName;
+        }
+        changed = true;
+      }
+
+      // Update displayGemstones prices and fix stale variantIds
+      if (entityType === "gemstone" && product.displayGemstones?.length) {
+        for (const dg of product.displayGemstones) {
+          if (
+            dg.gemstone.toString() === entityId &&
+            matchesVariant(dg.variantName, dg.variantId?.toString())
+          ) {
+            dg.pricePerCarat = price;
+            if (dg.variantId.toString() !== variantId) {
+              dg.variantId = variantId as unknown as import("mongoose").Types.ObjectId;
+            }
+            if (!dg.variantName) {
+              dg.variantName = variantName;
+            }
+            changed = true;
           }
         }
       }
 
       // Build chargeBasedOnVariant with current pricePerGram for the pricing engine
+      // Match by variantName for resilience against stale IDs
       const cbv = product.chargeBasedOnVariant?.variantId
         ? {
             metalId: product.chargeBasedOnVariant.metalId,
@@ -175,7 +269,9 @@ export async function POST(request: NextRequest) {
             variantName: product.chargeBasedOnVariant.variantName,
             // If this IS the charge variant being updated, use the new price
             pricePerGram:
-              product.chargeBasedOnVariant.variantId === variantId
+              entityType === "metal" &&
+              product.chargeBasedOnVariant.metalId === entityId &&
+              matchesVariant(product.chargeBasedOnVariant.variantName, product.chargeBasedOnVariant.variantId)
                 ? price
                 : undefined,
           }
@@ -202,8 +298,10 @@ export async function POST(request: NextRequest) {
       product.totalPrice = priceResult.totalPrice;
       product.lastPriceSync = new Date();
 
-      await product.save();
-      syncedCount++;
+      if (changed || priceResult.totalPrice !== product.totalPrice) {
+        await product.save();
+        syncedCount++;
+      }
     }
 
     // 3. Log to PriceHistory

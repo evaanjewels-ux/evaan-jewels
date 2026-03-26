@@ -112,27 +112,80 @@ export async function GET(request: NextRequest) {
     }
 
     // Find all affected products
+    // Match by (entity + variantName) using $elemMatch to handle stale variantIds.
+    // Variant IDs can go stale when admin re-saves a metal/gemstone, but
+    // variantName (e.g. "22K (91.6%)") is always stable.
     const compositionField =
       entityType === "metal" ? "metalComposition" : "gemstoneComposition";
     const entityField = entityType === "metal" ? "metal" : "gemstone";
 
-    const products = await Product.find({
-      [`${compositionField}.${entityField}`]: entityId,
-      [`${compositionField}.variantId`]: variantId,
-    })
+    const compositionQuery = {
+      [compositionField]: {
+        $elemMatch: {
+          [entityField]: entityId,
+          $or: [
+            { variantName: variantName },
+            { variantId: variantId },
+          ],
+        },
+      },
+    };
+
+    // Also find products whose chargeBasedOnVariant references this variant,
+    // since their making/wastage charges depend on this variant's price.
+    const chargeVariantQuery =
+      entityType === "metal"
+        ? {
+            "chargeBasedOnVariant.metalId": entityId,
+            $or: [
+              { "chargeBasedOnVariant.variantName": variantName },
+              { "chargeBasedOnVariant.variantId": variantId },
+            ],
+          }
+        : null;
+
+    // Also find products with displayGemstones referencing this gemstone variant
+    const displayGemstonesQuery =
+      entityType === "gemstone"
+        ? {
+            displayGemstones: {
+              $elemMatch: {
+                gemstone: entityId,
+                $or: [
+                  { variantName: variantName },
+                  { variantId: variantId },
+                ],
+              },
+            },
+          }
+        : null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const orQueries: Record<string, any>[] = [compositionQuery];
+    if (chargeVariantQuery) orQueries.push(chargeVariantQuery);
+    if (displayGemstonesQuery) orQueries.push(displayGemstonesQuery);
+
+    const productQuery = orQueries.length > 1
+      ? { $or: orQueries }
+      : compositionQuery;
+
+    const products = await Product.find(productQuery)
       .select(
-        "name productCode totalPrice metalComposition gemstoneComposition makingCharges wastageCharges gstPercentage otherCharges"
+        "name productCode totalPrice metalComposition gemstoneComposition makingCharges wastageCharges gstPercentage otherCharges chargeBasedOnVariant displayGemstones"
       )
       .lean();
 
     // Calculate new prices for each affected product
     const affectedProducts = products.map((product) => {
-      // Create updated composition with new price
+      // Create updated composition with new price (match by variantName, fallback to variantId)
+      const matchesVariant = (name: string | undefined, id: string | undefined) =>
+        (name && name === variantName) || (id && id === variantId);
+
       const updatedMetal = product.metalComposition.map((comp) => {
         if (
           entityType === "metal" &&
           comp.metal.toString() === entityId &&
-          comp.variantId.toString() === variantId
+          matchesVariant(comp.variantName, comp.variantId?.toString())
         ) {
           return { ...comp, pricePerGram: newPrice };
         }
@@ -143,12 +196,28 @@ export async function GET(request: NextRequest) {
         if (
           entityType === "gemstone" &&
           comp.gemstone.toString() === entityId &&
-          comp.variantId.toString() === variantId
+          matchesVariant(comp.variantName, comp.variantId?.toString())
         ) {
           return { ...comp, pricePerCarat: newPrice };
         }
         return comp;
       });
+
+      // Build chargeBasedOnVariant override for price calculation
+      const cbv = product.chargeBasedOnVariant?.variantId
+        ? {
+            metalId: product.chargeBasedOnVariant.metalId,
+            variantId: product.chargeBasedOnVariant.variantId,
+            variantName: product.chargeBasedOnVariant.variantName,
+            pricePerGram:
+              entityType === "metal" &&
+              product.chargeBasedOnVariant.metalId === entityId &&
+              (product.chargeBasedOnVariant.variantName === variantName ||
+                product.chargeBasedOnVariant.variantId === variantId)
+                ? newPrice
+                : undefined,
+          }
+        : undefined;
 
       const newPrices = calculateProductPrice({
         metalComposition: updatedMetal,
@@ -157,6 +226,7 @@ export async function GET(request: NextRequest) {
         wastageCharges: product.wastageCharges,
         gstPercentage: product.gstPercentage,
         otherCharges: product.otherCharges || [],
+        chargeBasedOnVariant: cbv,
       });
 
       return {

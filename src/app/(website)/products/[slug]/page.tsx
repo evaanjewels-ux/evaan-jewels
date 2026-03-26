@@ -234,10 +234,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const { product, relatedProducts, availableMetals, variantWeightMap, availableGemstones, displayGemstones, chargeVariantPricePerGram } = data;
   const category = product.category as { name: string; slug: string } | null;
 
-  const whatsappMessage = encodeURIComponent(
-    `Hi Evaan Jewels, I'm interested in ${product.name} (${product.productCode}). Could you provide more details?`
-  );
-
   return (
     <div className="py-8 md:py-12">
       <JsonLd
@@ -369,7 +365,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
             availableGemstones={availableGemstones || []}
             displayGemstoneOptions={displayGemstones || []}
             chargeVariantPricePerGram={chargeVariantPricePerGram}
-            whatsappMessage={whatsappMessage}
           />
         </div>
 

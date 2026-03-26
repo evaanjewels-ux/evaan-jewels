@@ -296,13 +296,20 @@ ProductSchema.index({ gender: 1 });
 ProductSchema.index({ isActive: 1, isNewArrival: -1, createdAt: -1 });
 ProductSchema.index({
   "metalComposition.metal": 1,
-  "metalComposition.variantId": 1,
+  "metalComposition.variantName": 1,
 });
 ProductSchema.index({
   "gemstoneComposition.gemstone": 1,
-  "gemstoneComposition.variantId": 1,
+  "gemstoneComposition.variantName": 1,
 });
-ProductSchema.index({ "chargeBasedOnVariant.variantId": 1 });
+ProductSchema.index({
+  "chargeBasedOnVariant.metalId": 1,
+  "chargeBasedOnVariant.variantName": 1,
+});
+ProductSchema.index({
+  "displayGemstones.gemstone": 1,
+  "displayGemstones.variantName": 1,
+});
 ProductSchema.index({ totalPrice: 1 });
 ProductSchema.index({ isFeatured: 1 });
 
