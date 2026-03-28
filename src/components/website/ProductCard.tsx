@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Eye } from "lucide-react";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, roundToTen } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 
 interface ProductCardProps {
@@ -140,7 +140,7 @@ export function ProductCard({ product, className, priority = false }: ProductCar
         {/* Price */}
         <div className="mt-auto pt-3">
           <span className="font-mono text-base font-semibold text-gold-700 sm:text-lg">
-            {formatCurrency(product.totalPrice)}
+            {formatCurrency(roundToTen(product.totalPrice))}
           </span>
         </div>
 

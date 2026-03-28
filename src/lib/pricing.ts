@@ -141,7 +141,7 @@ export function calculateProductPrice(
     otherChargesTotal: round(otherChargesTotal),
     subtotal: round(subtotal),
     gstAmount: round(gstAmount),
-    totalPrice: round(totalPrice),
+    totalPrice: roundToTen(totalPrice),
   };
 }
 
@@ -170,6 +170,14 @@ function resolveCharge(
  */
 function round(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+/**
+ * Round DOWN (floor) to the nearest 10 — used for the final displayed price.
+ * e.g. 63,887.3 → 63,880
+ */
+function roundToTen(value: number): number {
+  return Math.floor(value / 10) * 10;
 }
 
 /**

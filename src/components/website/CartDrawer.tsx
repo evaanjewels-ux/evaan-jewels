@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Minus, Plus, ShoppingBag, Trash2, ArrowRight } from "lucide-react";
 import { useCart } from "@/components/providers/CartProvider";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, roundToTen } from "@/lib/utils";
 
 export function CartDrawer() {
   const { items, isOpen, setCartOpen, removeItem, updateQuantity, subtotal, itemCount } =
@@ -131,7 +131,7 @@ export function CartDrawer() {
                             ))}
                           </div>
                         )}                        <p className="mt-1 font-mono text-sm font-semibold text-gold-700">
-                          {formatCurrency(item.totalPrice)}
+                          {formatCurrency(roundToTen(item.totalPrice))}
                         </p>
                         <div className="mt-auto flex items-center justify-between pt-2">
                           <div className="flex items-center gap-1">

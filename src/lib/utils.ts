@@ -9,6 +9,14 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Floor a price to the nearest ₹10 for display.
+ * e.g. 63,887.3 → 63,880
+ */
+export function roundToTen(value: number): number {
+  return Math.floor(value / 10) * 10;
+}
+
+/**
  * Format number as Indian Rupee currency
  */
 export function formatCurrency(amount: number): string {

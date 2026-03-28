@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRecentlyViewed } from "@/components/providers/RecentlyViewedProvider";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, roundToTen } from "@/lib/utils";
 
 interface RecentlyViewedProps {
   /** Exclude this product from the list (the currently viewed product) */
@@ -56,7 +56,7 @@ export function RecentlyViewed({ excludeProductId }: RecentlyViewedProps) {
                 <p className="text-xs text-charcoal-400">{item.category}</p>
               )}
               <p className="mt-1 font-mono text-sm font-semibold text-gold-700">
-                {formatCurrency(item.totalPrice)}
+                {formatCurrency(roundToTen(item.totalPrice))}
               </p>
             </div>
           </Link>

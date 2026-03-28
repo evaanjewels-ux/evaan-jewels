@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Heart, ShoppingBag, Trash2 } from "lucide-react";
 import { useWishlist } from "@/components/providers/WishlistProvider";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, roundToTen } from "@/lib/utils";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 
 export function WishlistClient() {
@@ -92,7 +92,7 @@ export function WishlistClient() {
                     </p>
                   )}
                   <p className="mt-2 font-mono text-sm font-semibold text-gold-700">
-                    {formatCurrency(item.totalPrice)}
+                    {formatCurrency(roundToTen(item.totalPrice))}
                   </p>
                   <Link
                     href={`/products/${item.slug}`}

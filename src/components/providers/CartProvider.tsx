@@ -167,7 +167,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const itemCount = state.items.reduce((sum: number, i: ICartItem) => sum + i.quantity, 0);
   const subtotal = state.items.reduce(
-    (sum: number, i: ICartItem) => sum + i.totalPrice * i.quantity,
+    (sum: number, i: ICartItem) => sum + Math.floor(i.totalPrice / 10) * 10 * i.quantity,
     0
   );
 
