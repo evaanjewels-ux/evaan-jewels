@@ -432,7 +432,8 @@ export function ProductDetailClient({
   const inWishlist = isInWishlist(product._id);
 
   return (
-    <div className="grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-12">
+    <>
+    <div className="grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-12 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
       {/* Gallery */}
       <div className="min-w-0">
         <ProductGallery
@@ -626,8 +627,8 @@ export function ProductDetailClient({
           </div>
         )}
 
-        {/* CTA Buttons */}
-        <div className="mt-6 flex flex-col gap-3">
+        {/* CTA Buttons — hidden on mobile (shown in sticky bar instead) */}
+        <div className="mt-6 hidden md:flex flex-col gap-3">
           {/* Primary: WhatsApp enquiry with dynamic message containing selected variants */}
           <a
             href={`https://wa.me/919654148574?text=${dynamicWhatsappMessage}`}
@@ -664,5 +665,33 @@ export function ProductDetailClient({
         </div>
       </div>
     </div>
+
+    {/* ── Sticky Mobile CTA Bar — sits above MobileBottomNav (≤58px + safe area) ── */}
+    <div className="fixed left-0 right-0 z-40 md:hidden bottom-[calc(58px+env(safe-area-inset-bottom,0px))]">
+      {/* Backdrop blur frosted glass bar */}
+      <div className="bg-white/90 backdrop-blur-md border-t border-gold-100 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 py-3">
+        <div className="flex items-center gap-3 max-w-lg mx-auto">
+          {/* WhatsApp */}
+          <a
+            href={`https://wa.me/919654148574?text=${dynamicWhatsappMessage}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] text-white font-semibold px-4 py-3.5 text-sm shadow-sm active:scale-[0.97] transition-transform"
+          >
+            <MessageCircle className="h-4 w-4 shrink-0" />
+            <span className="truncate">WhatsApp Enquiry</span>
+          </a>
+          {/* Call Us */}
+          <a
+            href="tel:+919654148574"
+            className="flex items-center justify-center gap-2 rounded-xl border border-charcoal-200 bg-white px-4 py-3.5 text-sm font-semibold text-charcoal-700 shadow-sm active:scale-[0.97] transition-transform"
+          >
+            <Phone className="h-4 w-4 shrink-0" />
+            <span>Call Us</span>
+          </a>
+        </div>
+      </div>
+    </div>
+    </>
   );
 }
