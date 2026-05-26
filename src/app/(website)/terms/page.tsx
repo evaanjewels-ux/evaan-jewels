@@ -162,7 +162,7 @@ export default function TermsPage() {
             </p>
             <ul className="mt-2 space-y-1 pl-0">
               <li>
-                <strong>Email:</strong> info@evaanjewels.com
+                <strong>Email:</strong> sales@evaanjewels.com
               </li>
               <li>
                 <strong>Phone:</strong> +91 96541 48574

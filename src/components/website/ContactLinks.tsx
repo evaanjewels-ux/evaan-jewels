@@ -37,7 +37,7 @@ export function ContactLinks() {
       </a>
 
       <a
-        href="mailto:info@evaanjewels.com"
+        href="mailto:sales@evaanjewels.com"
         className="flex items-center gap-3 text-sm text-charcoal-500 transition-colors hover:text-gold-600"
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
@@ -45,7 +45,20 @@ export function ContactLinks() {
         </div>
         <div>
           <p className="font-medium text-charcoal-700">Email</p>
-          <p>info@evaanjewels.com</p>
+          <p>sales@evaanjewels.com</p>
+        </div>
+      </a>
+
+      <a
+        href="mailto:evaanjewels@gmail.com"
+        className="flex items-center gap-3 text-sm text-charcoal-500 transition-colors hover:text-gold-600"
+      >
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+          <Mail className="h-4 w-4" />
+        </div>
+        <div>
+          <p className="font-medium text-charcoal-700">Email</p>
+          <p>evaanjewels@gmail.com</p>
         </div>
       </a>
     </div>

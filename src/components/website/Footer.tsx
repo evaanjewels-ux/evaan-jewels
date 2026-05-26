@@ -143,11 +143,20 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="mailto:info@evaanjewels.com"
+                  href="mailto:sales@evaanjewels.com"
                   className="flex items-center gap-2 text-sm text-charcoal-300 transition-colors hover:text-gold-400"
                 >
                   <Mail className="h-4 w-4 shrink-0 text-gold-600" />
-                  info@evaanjewels.com
+                  sales@evaanjewels.com
+                </a>
+              </li>
+              <li>
+                <a
+                  href="mailto:evaanjewels@gmail.com"
+                  className="flex items-center gap-2 text-sm text-charcoal-300 transition-colors hover:text-gold-400"
+                >
+                  <Mail className="h-4 w-4 shrink-0 text-gold-600" />
+                  evaanjewels@gmail.com
                 </a>
               </li>
               <li className="flex items-start gap-2 text-sm text-charcoal-300">

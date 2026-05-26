@@ -9,7 +9,7 @@ export const SHOP_INFO = {
   description: APP_DESCRIPTION,
   phone: "+919654148574",
   whatsapp: "+919654148574",
-  email: "info@evaanjewels.com",
+  email: "sales@evaanjewels.com",
   address: {
     street: "2nd Floor, B-169, Mohan Garden, Uttam Nagar, Rama Park Road",
     locality: "Uttam Nagar",
