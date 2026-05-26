@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Phone, MessageCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { trackContact } from "@/lib/analytics";
 
 interface ProductActionsProps {
   product: {
@@ -104,6 +105,14 @@ export function ProductActions({ product, whatsappMessage }: ProductActionsProps
           href={`https://wa.me/919654148574?text=${whatsappMessage}`}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() =>
+            trackContact({
+              type: "whatsapp",
+              productId: product._id,
+              productName: product.name,
+              productPrice: product.totalPrice,
+            })
+          }
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#25D366] text-white font-semibold px-6 py-3.5 text-sm shadow-sm transition-all duration-200 hover:bg-[#20bd5a] hover:shadow-md active:scale-[0.97]"
         >
           <MessageCircle className="h-4 w-4" />
@@ -114,6 +123,14 @@ export function ProductActions({ product, whatsappMessage }: ProductActionsProps
 
         <a
           href="tel:+919654148574"
+          onClick={() =>
+            trackContact({
+              type: "call",
+              productId: product._id,
+              productName: product.name,
+              productPrice: product.totalPrice,
+            })
+          }
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-charcoal-200 px-6 py-3 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
         >
           <Phone className="h-4 w-4" />

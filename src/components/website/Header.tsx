@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/Logo";
 import { WEBSITE_NAV_ITEMS } from "@/constants/navigation";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { trackContact } from "@/lib/analytics";
 
 const NAV_KEYS: Record<string, string> = {
   "/": "nav.home",
@@ -49,6 +50,7 @@ export function Header() {
           <div className="flex items-center gap-4">
             <a
               href="tel:+919654148574"
+              onClick={() => trackContact({ type: "call" })}
               className="flex items-center gap-1.5 transition-colors hover:text-gold-400"
             >
               <Phone className="h-3 w-3" />
@@ -141,6 +143,7 @@ Uttam Nagar, Delhi — 110059 </span>
               href="https://wa.me/919654148574?text=Hi%20Evaan%20Jewels%2C%20I%27m%20interested%20in%20your%20jewelry%20collection."
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackContact({ type: "whatsapp" })}
               className="inline-flex items-center gap-2 rounded-lg bg-gold-500 px-5 py-2.5 text-sm font-medium text-charcoal-900 shadow-sm transition-all duration-200 hover:bg-gold-400 hover:shadow-md active:scale-[0.97]"
             >
               {t("nav.enquireNow")}
@@ -217,12 +220,14 @@ Uttam Nagar, Delhi — 110059 </span>
                     href="https://wa.me/919654148574?text=Hi%20Evaan%20Jewels%2C%20I%27m%20interested%20in%20your%20jewelry%20collection."
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => trackContact({ type: "whatsapp" })}
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold-500 px-5 py-3 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-gold-600"
                   >
                     {t("nav.enquireWhatsApp")}
                   </a>
                   <a
                     href="tel:+919654148574"
+                    onClick={() => trackContact({ type: "call" })}
                     className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-charcoal-600 px-5 py-3 text-sm font-medium text-charcoal-200 transition-colors hover:bg-white/5"
                   >
                     <Phone className="h-4 w-4" />

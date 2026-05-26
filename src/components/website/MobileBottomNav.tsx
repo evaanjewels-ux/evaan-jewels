@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Grid3X3, Sparkles, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { trackContact } from "@/lib/analytics";
 
 const NAV_ITEMS = [
   { title: "Home", href: "/", icon: Home },
@@ -33,6 +34,7 @@ export function MobileBottomNav() {
                 href={item.href}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackContact({ type: "whatsapp" })}
                 className="flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium text-[#25D366] active:opacity-70"
               >
                 <item.icon className="h-5 w-5 text-[#25D366]" />

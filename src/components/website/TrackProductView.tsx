@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRecentlyViewed } from "@/components/providers/RecentlyViewedProvider";
+import { trackViewContent } from "@/lib/analytics";
 
 interface TrackProductViewProps {
   product: {
@@ -19,6 +20,12 @@ export function TrackProductView({ product }: TrackProductViewProps) {
 
   useEffect(() => {
     addViewed(product);
+    trackViewContent({
+      productId: product.productId,
+      name: product.name,
+      price: product.totalPrice,
+      category: product.category,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.productId]);
 

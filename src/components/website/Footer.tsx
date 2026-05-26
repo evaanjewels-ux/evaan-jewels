@@ -1,8 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { Phone, MapPin, Mail, Clock } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { WEBSITE_FOOTER_LINKS } from "@/constants/navigation";
 import { APP_NAME } from "@/constants";
+import { trackContact } from "@/lib/analytics";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -74,7 +77,7 @@ export function Footer() {
 
           {/* Mobile: compact contact info */}
           <div className="flex flex-wrap gap-4 text-xs text-charcoal-300 sm:hidden">
-            <a href="tel:+919654148574" className="flex items-center gap-1.5 hover:text-gold-400">
+            <a href="tel:+919654148574" onClick={() => trackContact({ type: "call" })} className="flex items-center gap-1.5 hover:text-gold-400">
               <Phone className="h-3.5 w-3.5 text-gold-600" />
               +91 96541 48574
             </a>
@@ -131,6 +134,7 @@ export function Footer() {
               <li>
                 <a
                   href="tel:+919654148574"
+                  onClick={() => trackContact({ type: "call" })}
                   className="flex items-center gap-2 text-sm text-charcoal-300 transition-colors hover:text-gold-400"
                 >
                   <Phone className="h-4 w-4 shrink-0 text-gold-600" />

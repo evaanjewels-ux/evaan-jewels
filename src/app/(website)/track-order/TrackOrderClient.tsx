@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import { trackContact } from "@/lib/analytics";
 import Link from "next/link";
 import {
   Search,
@@ -370,6 +371,7 @@ export function TrackOrderClient() {
               Need help?{" "}
               <a
                 href={`https://wa.me/919654148574?text=${encodeURIComponent(`Hi, I need help with order ${order.orderNumber}`)}`}
+                onClick={() => trackContact({ type: "whatsapp" })}
                 className="font-medium text-gold-600 hover:underline"
               >
                 Chat with us on WhatsApp

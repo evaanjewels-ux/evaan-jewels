@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { Phone, MessageCircle, Heart } from "lucide-react";
 import { useWishlist } from "@/components/providers/WishlistProvider";
+import { trackContact, trackAddToWishlist } from "@/lib/analytics";
 import { ProductGallery } from "./ProductGallery";
 import { PriceBreakdown } from "./PriceBreakdown";
 import { formatCurrency } from "@/lib/utils";
@@ -634,6 +635,14 @@ export function ProductDetailClient({
             href={`https://wa.me/919654148574?text=${dynamicWhatsappMessage}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() =>
+              trackContact({
+                type: "whatsapp",
+                productId: product._id,
+                productName: product.name,
+                productPrice: calculatedPrices.totalPrice,
+              })
+            }
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#25D366] text-white font-semibold px-6 py-3.5 text-sm shadow-sm transition-all duration-200 hover:bg-[#20bd5a] hover:shadow-md active:scale-[0.97]"
           >
             <MessageCircle className="h-4 w-4" />
@@ -642,7 +651,17 @@ export function ProductDetailClient({
 
           <div className="flex gap-3">
             <button
-              onClick={() => toggleWishlist(wishlistItem)}
+              onClick={() => {
+                if (!inWishlist) {
+                  trackAddToWishlist({
+                    productId: product._id,
+                    name: product.name,
+                    price: calculatedPrices.totalPrice,
+                    category: product.category?.name,
+                  });
+                }
+                toggleWishlist(wishlistItem);
+              }}
               className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
                 inWishlist
                   ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
@@ -656,6 +675,14 @@ export function ProductDetailClient({
             </button>
             <a
               href="tel:+919654148574"
+              onClick={() =>
+                trackContact({
+                  type: "call",
+                  productId: product._id,
+                  productName: product.name,
+                  productPrice: calculatedPrices.totalPrice,
+                })
+              }
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-charcoal-200 px-6 py-3 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
             >
               <Phone className="h-4 w-4" />
@@ -676,6 +703,14 @@ export function ProductDetailClient({
             href={`https://wa.me/919654148574?text=${dynamicWhatsappMessage}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() =>
+              trackContact({
+                type: "whatsapp",
+                productId: product._id,
+                productName: product.name,
+                productPrice: calculatedPrices.totalPrice,
+              })
+            }
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] text-white font-semibold px-4 py-3.5 text-sm shadow-sm active:scale-[0.97] transition-transform"
           >
             <MessageCircle className="h-4 w-4 shrink-0" />
@@ -684,6 +719,14 @@ export function ProductDetailClient({
           {/* Call Us */}
           <a
             href="tel:+919654148574"
+            onClick={() =>
+              trackContact({
+                type: "call",
+                productId: product._id,
+                productName: product.name,
+                productPrice: calculatedPrices.totalPrice,
+              })
+            }
             className="flex items-center justify-center gap-2 rounded-xl border border-charcoal-200 bg-white px-4 py-3.5 text-sm font-semibold text-charcoal-700 shadow-sm active:scale-[0.97] transition-transform"
           >
             <Phone className="h-4 w-4 shrink-0" />

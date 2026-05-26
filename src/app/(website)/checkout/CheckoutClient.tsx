@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { trackContact } from "@/lib/analytics";
 import { useRouter } from "next/navigation";
 import {
   ShoppingBag,
@@ -702,6 +703,7 @@ export function CheckoutClient() {
                   For queries, contact us on WhatsApp:{" "}
                   <a
                     href={`https://wa.me/91${process.env.NEXT_PUBLIC_SHOP_PHONE || "9654148574"}`}
+                    onClick={() => trackContact({ type: "whatsapp" })}
                     className="font-medium text-gold-600 hover:underline"
                   >
                     +91 {process.env.NEXT_PUBLIC_SHOP_PHONE || "9654148574"}
