@@ -1,6 +1,7 @@
 import { Header } from "@/components/website/Header";
 import { Footer } from "@/components/website/Footer";
 import { MobileBottomNav } from "@/components/website/MobileBottomNav";
+import { ScrollToTop } from "@/components/website/ScrollToTop";
 import { LanguageProvider } from "@/components/providers/LanguageProvider";
 import { WishlistProvider } from "@/components/providers/WishlistProvider";
 import { RecentlyViewedProvider } from "@/components/providers/RecentlyViewedProvider";
@@ -16,6 +17,7 @@ export default function WebsiteLayout({
       <WishlistProvider>
         <RecentlyViewedProvider>
         <div className="flex min-h-screen flex-col">
+          <ScrollToTop />
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />

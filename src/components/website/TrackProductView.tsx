@@ -26,6 +26,8 @@ export function TrackProductView({ product }: TrackProductViewProps) {
       price: product.totalPrice,
       category: product.category,
     });
+    // Ensure product page starts at top after content loads (mobile category → product nav)
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.productId]);
 
