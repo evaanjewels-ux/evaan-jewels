@@ -189,7 +189,10 @@ export function CartDrawer() {
                 </p>
                 <Link
                   href="/checkout"
-                  onClick={() => setCartOpen(false)}
+                  onClick={() => {
+                    setCartOpen(false);
+                    window.scrollTo(0, 0);
+                  }}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-gold-600 hover:shadow-md active:scale-[0.98]"
                 >
                   <ShoppingBag className="h-4 w-4" />

@@ -74,7 +74,7 @@ function loadRazorpayScript(): Promise<boolean> {
 
 export function CheckoutClient() {
   const { data: session } = useSession();
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal, clearCart, hydrated } = useCart();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderResult, setOrderResult] = useState<OrderResult | null>(null);
@@ -90,6 +90,19 @@ export function CheckoutClient() {
     pincode: "",
     landmark: "",
   });
+
+  // Always land at the top of checkout (mobile + desktop). Re-run when cart
+  // hydrates so content expansion doesn't leave the user at the footer.
+  useEffect(() => {
+    const toTop = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+    toTop();
+    const t = window.setTimeout(toTop, 100);
+    return () => window.clearTimeout(t);
+  }, [hydrated, items.length, step]);
 
   useEffect(() => {
     if (session?.user?.accountType !== "customer") return;
@@ -288,9 +301,17 @@ export function CheckoutClient() {
     }
   };
 
+  if (!hydrated) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center py-16">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold-500 border-t-transparent" />
+      </div>
+    );
+  }
+
   if (items.length === 0 && !orderResult) {
     return (
-      <div className="py-16 text-center">
+      <div className="py-16 text-center [overflow-anchor:none]">
         <div className="mx-auto max-w-md">
           <ShoppingBag className="mx-auto h-20 w-20 text-charcoal-200" />
           <h1 className="mt-6 text-2xl font-bold text-charcoal-700">
@@ -311,7 +332,7 @@ export function CheckoutClient() {
   }
 
   return (
-    <div className="py-8 md:py-12">
+    <div className="py-8 md:py-12 [overflow-anchor:none]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <Breadcrumb
           homeHref="/"
@@ -363,7 +384,7 @@ export function CheckoutClient() {
         </div>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 lg:order-1 order-2">
             {step === 1 && (
               <div className="rounded-xl border border-charcoal-100 bg-white p-6 shadow-card sm:p-8">
                 <h2 className="text-xl font-semibold text-charcoal-700">
@@ -705,7 +726,7 @@ export function CheckoutClient() {
           </div>
 
           {step !== 3 && (
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 lg:order-2 order-1">
               <div className="sticky top-24 rounded-xl border border-charcoal-100 bg-white p-6 shadow-card">
                 <h3 className="text-lg font-semibold text-charcoal-700">
                   Order Summary

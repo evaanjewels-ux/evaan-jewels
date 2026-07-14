@@ -6,6 +6,7 @@ import React, {
   useReducer,
   useEffect,
   useCallback,
+  useState,
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
@@ -94,6 +95,8 @@ interface CartContextType {
   isOpen: boolean;
   itemCount: number;
   subtotal: number;
+  /** False until localStorage cart has been read (avoids empty-cart flash) */
+  hydrated: boolean;
   addItem: (item: ICartItem) => void;
   removeItem: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
@@ -111,6 +114,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     items: [],
     isOpen: false,
   });
+  const [hydrated, setHydrated] = useState(false);
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -124,17 +128,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       // Ignore parse errors
+    } finally {
+      setHydrated(true);
     }
   }, []);
 
-  // Persist cart to localStorage on change
+  // Persist cart to localStorage on change (after hydration only)
   useEffect(() => {
+    if (!hydrated) return;
     try {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.items));
     } catch {
       // Ignore storage errors
     }
-  }, [state.items]);
+  }, [state.items, hydrated]);
 
   const addItem = useCallback((item: ICartItem) => {
     dispatch({ type: "ADD_ITEM", payload: item });
@@ -178,6 +185,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         isOpen: state.isOpen,
         itemCount,
         subtotal,
+        hydrated,
         addItem,
         removeItem,
         updateQuantity,
