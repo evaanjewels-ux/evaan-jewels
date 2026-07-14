@@ -52,7 +52,7 @@ const orderItemSchema = z.object({
 export const orderCreateSchema = z.object({
   items: z.array(orderItemSchema).min(1, "At least one item is required").max(50),
   shippingAddress: shippingAddressSchema,
-  paymentMethod: z.enum(["razorpay", "cod"]),
+  paymentMethod: z.enum(["razorpay"]),
   customerNotes: z.string().max(500).optional().default(""),
 });
 

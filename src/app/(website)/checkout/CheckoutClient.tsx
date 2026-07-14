@@ -11,7 +11,6 @@ import {
   Truck,
   CheckCircle2,
   ArrowLeft,
-  Banknote,
   ShieldCheck,
   AlertCircle,
 } from "lucide-react";
@@ -29,7 +28,7 @@ const INDIAN_STATES = [
   "Uttarakhand", "West Bengal",
 ];
 
-type PaymentMethod = "razorpay" | "cod";
+type PaymentMethod = "razorpay";
 
 interface ShippingForm {
   fullName: string;
@@ -113,7 +112,7 @@ export function CheckoutClient() {
       .catch(() => {});
   }, [session]);
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("razorpay");
+  const paymentMethod: PaymentMethod = "razorpay";
   const [customerNotes, setCustomerNotes] = useState("");
 
   const shippingCharge = subtotal >= 50000 ? 0 : 500;
@@ -276,21 +275,8 @@ export function CheckoutClient() {
         return;
       }
 
-      if (paymentMethod === "cod") {
-        setOrderResult({
-          orderNumber: data.data.orderNumber,
-          totalAmount: data.data.totalAmount,
-          paymentMethod: "cod",
-          paymentStatus: data.data.paymentStatus,
-        });
-        clearCart();
-        setStep(3);
-        toast.success("Order placed successfully!");
-        return;
-      }
-
       if (!data.data.razorpay) {
-        toast.error("Payment gateway unavailable. Please try COD or contact us.");
+        toast.error("Payment gateway unavailable. Please contact us on WhatsApp.");
         return;
       }
 
@@ -604,32 +590,16 @@ export function CheckoutClient() {
                 </button>
 
                 <h2 className="text-xl font-semibold text-charcoal-700">
-                  Payment Method
+                  Payment
                 </h2>
                 <p className="mt-1 text-sm text-charcoal-400">
-                  Pay securely online with Razorpay, or choose Cash on Delivery.
+                  Pay securely online with Razorpay.
                 </p>
 
-                <div className="mt-6 space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("razorpay")}
-                    className={cn(
-                      "w-full rounded-xl border-2 p-4 text-left transition-all",
-                      paymentMethod === "razorpay"
-                        ? "border-gold-500 bg-gold-50/50"
-                        : "border-charcoal-100 hover:border-charcoal-200"
-                    )}
-                  >
+                <div className="mt-6">
+                  <div className="w-full rounded-xl border-2 border-gold-500 bg-gold-50/50 p-4">
                     <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-lg",
-                          paymentMethod === "razorpay"
-                            ? "bg-gold-100 text-gold-600"
-                            : "bg-charcoal-100 text-charcoal-500"
-                        )}
-                      >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gold-100 text-gold-600">
                         <ShieldCheck className="h-5 w-5" />
                       </div>
                       <div>
@@ -641,46 +611,13 @@ export function CheckoutClient() {
                         </p>
                       </div>
                     </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("cod")}
-                    className={cn(
-                      "w-full rounded-xl border-2 p-4 text-left transition-all",
-                      paymentMethod === "cod"
-                        ? "border-gold-500 bg-gold-50/50"
-                        : "border-charcoal-100 hover:border-charcoal-200"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-lg",
-                          paymentMethod === "cod"
-                            ? "bg-gold-100 text-gold-600"
-                            : "bg-charcoal-100 text-charcoal-500"
-                        )}
-                      >
-                        <Banknote className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-charcoal-700">
-                          Cash on Delivery
-                        </p>
-                        <p className="text-xs text-charcoal-400">
-                          Pay when you receive the order
-                        </p>
-                      </div>
-                    </div>
-                  </button>
+                  </div>
                 </div>
 
                 <div className="mt-4 flex gap-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-700">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <p>
                     Prices are recalculated securely on our servers at checkout.
-                    For COD, we may contact you on WhatsApp to confirm.
                   </p>
                 </div>
 
@@ -694,12 +631,8 @@ export function CheckoutClient() {
                   )}
                 >
                   {isSubmitting
-                    ? paymentMethod === "razorpay"
-                      ? "Opening payment..."
-                      : "Placing Order..."
-                    : paymentMethod === "razorpay"
-                      ? `Pay ${formatCurrency(totalAmount)}`
-                      : "Place COD Order"}
+                    ? "Opening payment..."
+                    : `Pay ${formatCurrency(totalAmount)}`}
                 </button>
               </div>
             )}
@@ -716,9 +649,7 @@ export function CheckoutClient() {
                     : "Order Placed Successfully!"}
                 </h2>
                 <p className="mt-2 text-charcoal-400">
-                  {orderResult.paymentMethod === "cod"
-                    ? "We'll confirm your COD order shortly."
-                    : "Thank you for your purchase. Your order is confirmed."}
+                  Thank you for your purchase. Your order is confirmed.
                 </p>
 
                 <div className="mx-auto mt-6 max-w-sm rounded-xl bg-charcoal-50 p-5">
@@ -738,9 +669,7 @@ export function CheckoutClient() {
                     <div className="flex justify-between">
                       <span className="text-charcoal-400">Payment</span>
                       <span className="font-medium text-charcoal-700">
-                        {orderResult.paymentMethod === "cod"
-                          ? "Cash on Delivery"
-                          : "Razorpay (Paid)"}
+                        Razorpay (Paid)
                       </span>
                     </div>
                   </div>

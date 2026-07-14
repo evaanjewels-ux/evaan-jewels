@@ -12,7 +12,6 @@ import {
   getRazorpayKeyId,
 } from "@/lib/razorpay";
 import { auth } from "@/lib/auth";
-import { orderToEmailData, sendOrderPlacedEmail } from "@/lib/email";
 import { ITEMS_PER_PAGE } from "@/constants";
 import type { IProduct } from "@/types";
 
@@ -179,8 +178,6 @@ export async function POST(request: NextRequest) {
     const seq = await getNextSequence("order", "EJ", year);
     const orderNumber = `EJ-${year}-${String(seq).padStart(4, "0")}`;
 
-    const isCod = validated.paymentMethod === "cod";
-
     let userId =
       session?.user?.accountType === "customer" ? session.user.id : undefined;
 
@@ -200,7 +197,7 @@ export async function POST(request: NextRequest) {
       items: orderItems,
       shippingAddress: validated.shippingAddress,
       payment: {
-        method: validated.paymentMethod,
+        method: "razorpay",
         status: "pending",
         amount: totalAmount,
       },
@@ -208,44 +205,16 @@ export async function POST(request: NextRequest) {
       shippingCharge,
       discount: 0,
       totalAmount,
-      status: isCod ? "confirmed" : "pending",
+      status: "pending",
       customerNotes: validated.customerNotes || "",
       timeline: [
         {
-          status: isCod ? "confirmed" : "pending",
-          message: isCod
-            ? "Order placed with Cash on Delivery."
-            : "Order created. Awaiting Razorpay payment.",
+          status: "pending",
+          message: "Order created. Awaiting Razorpay payment.",
           timestamp: new Date(),
         },
       ],
     });
-
-    // COD: receipt now. Razorpay: receipt only after payment (verify/webhook).
-    if (isCod) {
-      const emailData = orderToEmailData(order);
-      if (emailData) {
-        await sendOrderPlacedEmail(emailData);
-        order.emailsSent = { ...order.emailsSent, placed: true };
-        await order.save();
-      }
-
-      return NextResponse.json(
-        {
-          success: true,
-          data: {
-            orderNumber: order.orderNumber,
-            totalAmount: order.totalAmount,
-            status: order.status,
-            paymentMethod: order.payment.method,
-            paymentStatus: order.payment.status,
-            _id: order._id,
-          },
-          message: "Order placed successfully!",
-        },
-        { status: 201 }
-      );
-    }
 
     // Razorpay: create gateway order before returning checkout payload
     let rzOrder;
@@ -272,7 +241,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error:
-            "Payment gateway is not configured correctly. Please try again or choose COD.",
+            "Payment gateway is not configured correctly. Please try again or contact us.",
         },
         { status: 502 }
       );
