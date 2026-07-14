@@ -6,11 +6,6 @@ import { motion } from "framer-motion";
 import {
   Search,
   ShoppingBag,
-  Clock,
-  CheckCircle2,
-  Package,
-  Truck,
-  Ban,
   Eye,
   Filter,
   ArrowRight,
@@ -26,6 +21,11 @@ import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { formatDate, cn } from "@/lib/utils";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { ITEMS_PER_PAGE } from "@/constants";
+import {
+  ORDER_STATUS_FLOW,
+  ORDER_STATUS_CONFIG,
+  type OrderStatus,
+} from "@/constants/orderStatus";
 
 interface OrderItem {
   _id: string;
@@ -48,11 +48,10 @@ interface OrderItem {
 
 const STATUS_OPTIONS = [
   { value: "", label: "All Statuses" },
-  { value: "pending", label: "Pending" },
-  { value: "confirmed", label: "Confirmed" },
-  { value: "processing", label: "Processing" },
-  { value: "shipped", label: "Shipped" },
-  { value: "delivered", label: "Delivered" },
+  ...ORDER_STATUS_FLOW.map((s) => ({
+    value: s,
+    label: ORDER_STATUS_CONFIG[s].label,
+  })),
   { value: "cancelled", label: "Cancelled" },
 ];
 
@@ -65,13 +64,22 @@ const PAYMENT_STATUS_OPTIONS = [
   { value: "refunded", label: "Refunded" },
 ];
 
-const STATUS_BADGE: Record<string, { variant: "gold" | "info" | "success" | "rose" | "error"; icon: React.ElementType }> = {
-  pending: { variant: "gold", icon: Clock },
-  confirmed: { variant: "info", icon: CheckCircle2 },
-  processing: { variant: "rose", icon: Package },
-  shipped: { variant: "gold", icon: Truck },
-  delivered: { variant: "success", icon: CheckCircle2 },
-  cancelled: { variant: "error", icon: Ban },
+const STATUS_BADGE_VARIANT: Record<
+  string,
+  "gold" | "info" | "success" | "rose" | "error"
+> = {
+  pending: "gold",
+  confirmed: "info",
+  processing: "rose",
+  cad_3d_print: "info",
+  wax_treeing: "gold",
+  lost_wax_casting: "gold",
+  filing_cleanup: "rose",
+  setting: "rose",
+  polishing_finish: "info",
+  shipped: "gold",
+  delivered: "success",
+  cancelled: "error",
 };
 
 const PAYMENT_BADGE: Record<string, "gold" | "info" | "success" | "rose" | "error"> = {
@@ -244,8 +252,12 @@ export default function OrdersListPage() {
           className="space-y-3"
         >
           {orders.map((order) => {
-            const statusBadge = STATUS_BADGE[order.status] || STATUS_BADGE.pending;
-            const StatusIcon = statusBadge.icon;
+            const conf =
+              ORDER_STATUS_CONFIG[order.status as OrderStatus] ||
+              ORDER_STATUS_CONFIG.pending;
+            const StatusIcon = conf.icon;
+            const statusVariant =
+              STATUS_BADGE_VARIANT[order.status] || "gold";
             const paymentBadgeVariant = PAYMENT_BADGE[order.payment.status] || "gold";
             const itemCount = order.items.length;
 
@@ -263,8 +275,8 @@ export default function OrdersListPage() {
                             <p className="font-mono text-sm font-semibold text-charcoal-700">
                               {order.orderNumber}
                             </p>
-                            <Badge variant={statusBadge.variant} size="sm">
-                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                            <Badge variant={statusVariant} size="sm">
+                              {conf.label}
                             </Badge>
                           </div>
                           <p className="text-xs text-charcoal-400">

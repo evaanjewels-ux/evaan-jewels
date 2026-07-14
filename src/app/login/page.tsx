@@ -30,6 +30,7 @@ export default function LoginPage() {
       const result = await signIn("credentials", {
         email,
         password,
+        accountType: "admin",
         redirect: false,
       });
 

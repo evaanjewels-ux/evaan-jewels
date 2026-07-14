@@ -37,10 +37,21 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const optimized = await sharp(buffer)
-      .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 85 })
-      .toBuffer();
+    const optimized =
+      folder === "hero"
+        ? await sharp(buffer)
+            .resize(1920, 1080, { fit: "inside", withoutEnlargement: true })
+            .webp({ quality: 82 })
+            .toBuffer()
+        : folder === "hero-mobile"
+          ? await sharp(buffer)
+              .resize(1080, 1920, { fit: "inside", withoutEnlargement: true })
+              .webp({ quality: 82 })
+              .toBuffer()
+          : await sharp(buffer)
+              .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+              .webp({ quality: 85 })
+              .toBuffer();
 
     const key = generateFileKey(folder, file.name.replace(/\.[^.]+$/, ".webp"));
     const url = await uploadToR2(optimized, key, "image/webp");

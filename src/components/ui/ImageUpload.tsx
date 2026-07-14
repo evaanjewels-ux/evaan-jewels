@@ -241,13 +241,17 @@ export function MultiImageUpload({
         const result = await res.json();
         if (result.success) {
           uploaded.push(result.data.url);
+        } else {
+          console.error("Upload failed:", result.error);
         }
-      } catch {
-        // Skip failed uploads
+      } catch (err) {
+        console.error("Upload error:", err);
       }
     }
 
-    onChange([...value, ...uploaded]);
+    if (uploaded.length > 0) {
+      onChange([...value, ...uploaded]);
+    }
     setIsUploading(false);
   };
 

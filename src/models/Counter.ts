@@ -25,7 +25,7 @@ export async function getNextSequence(
   const counter = await Counter.findOneAndUpdate(
     { name, year },
     { $inc: { seq: 1 }, $setOnInsert: { prefix } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: "after" }
   );
   return counter.seq;
 }

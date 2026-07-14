@@ -9,6 +9,7 @@ import {
   Settings,
   Users,
   ShoppingCart,
+  ImageIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,6 +25,11 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     title: "Dashboard",
     href: "/admin/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Hero Section",
+    href: "/admin/hero",
+    icon: ImageIcon,
   },
   {
     title: "Products",
@@ -96,6 +102,11 @@ export const ADMIN_MOBILE_NAV_ITEMS: NavItem[] = [
 ];
 
 export const ADMIN_MORE_NAV_ITEMS: NavItem[] = [
+  {
+    title: "Hero Section",
+    href: "/admin/hero",
+    icon: ImageIcon,
+  },
   {
     title: "Metals",
     href: "/admin/metals",

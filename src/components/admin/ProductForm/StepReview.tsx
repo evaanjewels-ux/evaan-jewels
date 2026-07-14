@@ -8,6 +8,8 @@ import { PriceDisplay } from "@/components/ui/PriceDisplay";
 import { formatCurrency } from "@/lib/utils";
 import type { ProductFormData } from "./index";
 import type { MetalEntry, GemstoneEntry } from "./StepComposition";
+import { formatBarWeightLabel } from "@/lib/bar-product";
+import { barSpecsToMetalComposition } from "./StepBarDetails";
 
 interface PriceBreakdown {
   metalTotal: number;
@@ -29,6 +31,7 @@ interface StepReviewProps {
   onSubmit: () => void;
   isSubmitting: boolean;
   mode: "create" | "edit";
+  isBar?: boolean;
 }
 
 export function StepReview({
@@ -40,13 +43,17 @@ export function StepReview({
   onSubmit,
   isSubmitting,
   mode,
+  isBar = false,
 }: StepReviewProps) {
   const categoryName =
     categories.find((c) => c._id === formData.basic.category)?.name || "—";
 
+  const reviewMetals = isBar
+    ? barSpecsToMetalComposition(formData.barSpecs)
+    : formData.composition.metals;
+
   return (
     <div className="space-y-6">
-      {/* Basic Info */}
       <Card>
         <div className="p-5 md:p-6">
           <div className="flex items-center justify-between mb-4">
@@ -66,10 +73,15 @@ export function StepReview({
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
             <ReviewField label="Product Name" value={formData.basic.name} />
             <ReviewField label="Category" value={categoryName} />
-            <ReviewField
-              label="Gender"
-              value={formData.basic.gender.charAt(0).toUpperCase() + formData.basic.gender.slice(1)}
-            />
+            {!isBar && (
+              <ReviewField
+                label="Gender"
+                value={
+                  formData.basic.gender.charAt(0).toUpperCase() +
+                  formData.basic.gender.slice(1)
+                }
+              />
+            )}
             <ReviewField
               label="Description"
               value={
@@ -83,7 +95,90 @@ export function StepReview({
         </div>
       </Card>
 
-      {/* Price Breakdown */}
+      {isBar && (
+        <Card>
+          <div className="p-5 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-charcoal-700">
+                Bar Details
+              </h2>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onGoTo(1)}
+              >
+                <Pencil size={14} />
+                Edit
+              </Button>
+            </div>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 mb-4">
+              <ReviewField
+                label="Metal"
+                value={`${formData.barSpecs.metalName} — ${formData.barSpecs.variantName}`}
+              />
+              <ReviewField
+                label="Purity"
+                value={String(formData.barSpecs.purity)}
+              />
+              <ReviewField label="Shape" value={formData.barSpecs.shape} />
+              <ReviewField
+                label="Country of Origin"
+                value={formData.barSpecs.countryOfOrigin || "—"}
+              />
+              <ReviewField
+                label="Importer"
+                value={formData.barSpecs.importer || "—"}
+              />
+              {formData.barSpecs.mintBrand ? (
+                <ReviewField
+                  label="Mint / Brand"
+                  value={formData.barSpecs.mintBrand}
+                />
+              ) : null}
+            </dl>
+            <h3 className="text-sm font-medium text-charcoal-500 mb-2">
+              Weight Options
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="border-b border-charcoal-100 text-charcoal-400">
+                    <th className="py-2 pr-3 font-medium">Weight</th>
+                    <th className="py-2 pr-3 font-medium">SKU</th>
+                    <th className="py-2 pr-3 font-medium">Dimension</th>
+                    <th className="py-2 font-medium">Net Wt</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formData.barSpecs.weightOptions.map((w, i) => (
+                    <tr key={i} className="border-b border-charcoal-50">
+                      <td className="py-2 pr-3 text-charcoal-700">
+                        {formatBarWeightLabel(w.weightGrams)}
+                        {w.isDefault && (
+                          <span className="ml-1 text-xs text-gold-600">
+                            (default)
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-3 font-mono text-xs text-charcoal-600">
+                        {w.sku || "—"}
+                      </td>
+                      <td className="py-2 pr-3 text-charcoal-600">
+                        {w.dimension || "—"}
+                      </td>
+                      <td className="py-2 text-charcoal-600">
+                        {w.netWeight || w.weightGrams} g
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card>
         <div className="p-5 md:p-6">
           <div className="flex items-center justify-between mb-4">
@@ -102,13 +197,12 @@ export function StepReview({
           </div>
 
           <div className="space-y-3">
-            {/* Metal Composition */}
-            {formData.composition.metals.length > 0 && (
+            {reviewMetals.length > 0 && (
               <div>
                 <h3 className="text-sm font-medium text-charcoal-500 mb-2">
-                  Metal Composition
+                  {isBar ? "Metal Value (default weight)" : "Metal Composition"}
                 </h3>
-                {formData.composition.metals.map((m: MetalEntry, i: number) => (
+                {reviewMetals.map((m: MetalEntry, i: number) => (
                   <div
                     key={i}
                     className="flex items-center justify-between text-sm py-1.5"
@@ -131,8 +225,7 @@ export function StepReview({
               </div>
             )}
 
-            {/* Gemstone Composition */}
-            {formData.composition.gemstones.length > 0 && (
+            {!isBar && formData.composition.gemstones.length > 0 && (
               <div className="pt-2">
                 <h3 className="text-sm font-medium text-charcoal-500 mb-2">
                   Gemstone Composition
@@ -163,7 +256,6 @@ export function StepReview({
               </div>
             )}
 
-            {/* Charges */}
             <div className="pt-2 border-t border-charcoal-100">
               <div className="flex items-center justify-between mb-1">
                 <h3 className="text-sm font-medium text-charcoal-500">
@@ -181,7 +273,7 @@ export function StepReview({
               {prices.makingChargeAmount > 0 && (
                 <div className="flex items-center justify-between text-sm py-1">
                   <span className="text-charcoal-600">
-                    Making Charges (
+                    {isBar ? "Premium / Making" : "Making Charges"} (
                     {formData.charges.makingCharges.type === "percentage"
                       ? `${formData.charges.makingCharges.value}%`
                       : formData.charges.makingCharges.type === "per_gram"
@@ -203,11 +295,6 @@ export function StepReview({
                 <div className="flex items-center justify-between text-sm py-1">
                   <span className="text-charcoal-600">
                     Wastage Charges (per-material)
-                    {formData.charges.chargeBasedOnVariant && (
-                      <span className="text-xs text-gold-600 ml-1">
-                        @ {formData.charges.chargeBasedOnVariant.variantName} rate
-                      </span>
-                    )}
                   </span>
                   <span className="font-mono text-charcoal-700">
                     {formatCurrency(prices.wastageChargeAmount)}
@@ -227,7 +314,6 @@ export function StepReview({
               ))}
             </div>
 
-            {/* Subtotal, GST, Total */}
             <div className="border-t-2 border-charcoal-200 pt-3 space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-charcoal-600">Subtotal</span>
@@ -254,7 +340,6 @@ export function StepReview({
         </div>
       </Card>
 
-      {/* Images & Flags */}
       <Card>
         <div className="p-5 md:p-6">
           <div className="flex items-center justify-between mb-4">
@@ -333,7 +418,6 @@ export function StepReview({
         </div>
       </Card>
 
-      {/* Actions */}
       <div className="flex justify-between">
         <Button type="button" variant="ghost" onClick={onBack}>
           Back
@@ -344,7 +428,13 @@ export function StepReview({
           onClick={onSubmit}
           isLoading={isSubmitting}
         >
-          {mode === "edit" ? "Update Product" : "Create Product"}
+          {mode === "edit"
+            ? isBar
+              ? "Update Bar"
+              : "Update Product"
+            : isBar
+              ? "Create Bar"
+              : "Create Product"}
         </Button>
       </div>
     </div>

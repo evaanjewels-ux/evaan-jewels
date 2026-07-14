@@ -135,7 +135,16 @@ export async function POST(request: NextRequest) {
       chargeBasedOnVariant: validatedData.chargeBasedOnVariant as Parameters<typeof calculateProductPrice>[0]["chargeBasedOnVariant"],
     });
 
-    const product = await Product.create({ ...validatedData, ...prices, lastPriceSync: new Date() });
+    const createData: Record<string, unknown> = {
+      ...validatedData,
+      ...prices,
+      lastPriceSync: new Date(),
+    };
+    if (createData.barSpecs === null || createData.barSpecs === undefined) {
+      delete createData.barSpecs;
+    }
+
+    const product = await Product.create(createData);
 
     // Populate category for the response — wrapped in its own try-catch
     // so a populate timeout doesn't mask the successful creation.

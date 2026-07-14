@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import dbConnect from "@/lib/db";
 import Category from "@/models/Category";
 import Product from "@/models/Product";
+import { getHeroImages } from "@/models/SiteSettings";
 import { HeroSection } from "@/components/website/HeroSection";
 import { PriceTicker } from "@/components/website/PriceTicker";
 import { CategoryGrid } from "@/components/website/CategoryGrid";
@@ -151,7 +152,18 @@ async function FeaturedSection() {
   );
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  let heroImages: string[] = [];
+  let heroImagesMobile: string[] = [];
+  try {
+    await dbConnect();
+    const hero = await getHeroImages();
+    heroImages = hero.desktop;
+    heroImagesMobile = hero.mobile;
+  } catch (err) {
+    console.error("Failed to load hero images:", err);
+  }
+
   return (
     <>
       <JsonLd data={organizationJsonLd()} />
@@ -193,7 +205,7 @@ export default function HomePage() {
       />
 
       {/* Hero — renders immediately */}
-      <HeroSection />
+      <HeroSection images={heroImages} mobileImages={heroImagesMobile} />
 
       {/* Live Price Ticker */}
       <Suspense fallback={<div className="h-14 animate-pulse bg-charcoal-50" />}>

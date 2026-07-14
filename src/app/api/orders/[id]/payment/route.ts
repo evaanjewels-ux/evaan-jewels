@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 import dbConnect from "@/lib/db";
 import Order from "@/models/Order";
 import { paymentStatusUpdateSchema } from "@/lib/validators/order";
+import { auth } from "@/lib/auth";
+import { orderToEmailData, sendPaymentConfirmedEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -9,13 +12,29 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// PATCH /api/orders/:id/payment — Update payment status (admin)
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (
+      !session?.user?.id ||
+      session.user.accountType === "customer" ||
+      session.user.role === "customer"
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     await dbConnect();
     const { id } = await params;
     const body = await request.json();
-    const validated = paymentStatusUpdateSchema.parse(body);
+
+    const validated = paymentStatusUpdateSchema.parse({
+      status: body.status || body.paymentStatus,
+      transactionId: body.transactionId,
+      notes: body.notes || body.note || "",
+    });
 
     const order = await Order.findById(id);
     if (!order) {
@@ -24,6 +43,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 404 }
       );
     }
+
+    const wasVerified = order.payment.status === "verified";
 
     order.payment.status = validated.status;
     if (validated.transactionId) {
@@ -37,7 +58,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       order.payment.paidAt = new Date();
     }
 
-    // Auto-confirm order when payment is verified
     if (validated.status === "verified" && order.status === "pending") {
       order.status = "confirmed";
       order.timeline.push({
@@ -49,9 +69,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     order.timeline.push({
       status: order.status,
-      message: `Payment status updated to ${validated.status}${validated.transactionId ? ` (Txn: ${validated.transactionId})` : ""}`,
+      message: `Payment status updated to ${validated.status}${
+        validated.transactionId ? ` (Txn: ${validated.transactionId})` : ""
+      }`,
       timestamp: new Date(),
     });
+
+    if (
+      validated.status === "verified" &&
+      !wasVerified &&
+      !order.emailsSent?.paymentConfirmed
+    ) {
+      const emailData = orderToEmailData(order);
+      if (emailData) {
+        await sendPaymentConfirmedEmail(emailData);
+        order.emailsSent = {
+          ...order.emailsSent,
+          paymentConfirmed: true,
+        };
+      }
+    }
 
     await order.save();
 
@@ -61,9 +98,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       message: "Payment status updated successfully",
     });
   } catch (error) {
-    if (error instanceof Error && error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return NextResponse.json(
-        { success: false, error: "Validation failed", details: error },
+        {
+          success: false,
+          error: "Validation failed",
+          details: error.flatten(),
+        },
         { status: 400 }
       );
     }

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 import dbConnect from "@/lib/db";
 import Order from "@/models/Order";
+import { orderStatusUpdateSchema } from "@/lib/validators/order";
+import { auth } from "@/lib/auth";
+import { orderToEmailData, sendOrderStatusEmail } from "@/lib/email";
+import { ORDER_STATUS_CONFIG, type OrderStatus } from "@/constants/orderStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -8,9 +13,24 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// GET /api/orders/:id — Get single order
+function isAdminSession(session: {
+  user?: { accountType?: string; role?: string };
+} | null) {
+  if (!session?.user) return false;
+  if (session.user.accountType === "admin") return true;
+  return session.user.role === "admin" || session.user.role === "super_admin";
+}
+
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!isAdminSession(session)) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     await dbConnect();
     const { id } = await params;
 
@@ -32,12 +52,32 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// PATCH /api/orders/:id — Update order status (admin)
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await auth();
+    if (!isAdminSession(session)) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     await dbConnect();
     const { id } = await params;
     const body = await request.json();
+
+    const normalized = {
+      status: body.status,
+      message: body.message || body.note || body.statusNote || "",
+      trackingNumber:
+        body.trackingNumber || body.trackingInfo?.trackingNumber || undefined,
+      trackingUrl:
+        body.trackingUrl || body.trackingInfo?.trackingUrl || undefined,
+      cancelReason: body.cancelReason,
+      notes: body.notes || body.adminNotes,
+    };
+
+    const validated = orderStatusUpdateSchema.parse(normalized);
 
     const order = await Order.findById(id);
     if (!order) {
@@ -47,28 +87,45 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Update order status
-    if (body.status) {
-      order.status = body.status;
+    const prevStatus = order.status;
+
+    if (validated.status) {
+      order.status = validated.status;
+      const statusLabel =
+        ORDER_STATUS_CONFIG[validated.status as OrderStatus]?.label ||
+        validated.status;
       order.timeline.push({
-        status: body.status,
+        status: validated.status,
         message:
-          body.message || `Order status updated to ${body.status}`,
+          validated.message || `Order status updated to ${statusLabel}`,
         timestamp: new Date(),
-        updatedBy: body.adminId,
+        updatedBy: session!.user!.id as unknown as import("mongoose").Types.ObjectId,
       });
 
-      if (body.status === "cancelled" && body.cancelReason) {
-        order.cancelReason = body.cancelReason;
+      if (validated.status === "cancelled" && validated.cancelReason) {
+        order.cancelReason = validated.cancelReason;
       }
     }
 
-    // Update tracking info
-    if (body.trackingNumber) order.trackingNumber = body.trackingNumber;
-    if (body.trackingUrl) order.trackingUrl = body.trackingUrl;
-    if (body.notes) order.notes = body.notes;
+    if (validated.trackingNumber !== undefined) {
+      order.trackingNumber = validated.trackingNumber;
+    }
+    if (validated.trackingUrl !== undefined) {
+      order.trackingUrl = validated.trackingUrl;
+    }
+    if (validated.notes !== undefined) {
+      order.notes = validated.notes;
+    }
 
     await order.save();
+
+    if (validated.status && validated.status !== prevStatus) {
+      const emailData = orderToEmailData(order);
+      if (emailData) {
+        // fire-and-forget-ish but awaited so delivery is reliable
+        await sendOrderStatusEmail(emailData);
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -76,6 +133,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       message: "Order updated successfully",
     });
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Validation failed",
+          details: error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
     console.error("PATCH /api/orders/:id error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to update order" },

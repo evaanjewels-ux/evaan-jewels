@@ -121,6 +121,28 @@ export interface IColorImage {
   images: string[];
 }
 
+/** Per-weight option for bullion / bar products (shown as weight chips on PDP). */
+export interface IBarWeightOption {
+  weightGrams: number;
+  sku?: string;
+  dimension?: string;
+  /** Net metal weight — usually same as weightGrams */
+  netWeight?: number;
+  isDefault?: boolean;
+  isOutOfStock?: boolean;
+}
+
+/** Specs unique to gold/silver/platinum bars (not jewelry). */
+export interface IBarSpecs {
+  shape: string;
+  /** Fineness scale e.g. 999.9 (not percentage) */
+  purity: number;
+  countryOfOrigin: string;
+  importer: string;
+  mintBrand?: string;
+  weightOptions: IBarWeightOption[];
+}
+
 export interface IProduct {
   _id: Types.ObjectId;
   name: string;
@@ -132,6 +154,9 @@ export interface IProduct {
 
   metalComposition: IMetalComposition[];
   gemstoneComposition: IGemstoneComposition[];
+
+  /** Present when this listing is a metal bar / bullion product */
+  barSpecs?: IBarSpecs;
 
   makingCharges: ICharges;
   wastageCharges: ICharges;

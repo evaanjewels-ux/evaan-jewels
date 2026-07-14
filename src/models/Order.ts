@@ -1,8 +1,8 @@
 import mongoose, { Schema, Model } from "mongoose";
 
 // ─── Order Status Flow ───────────────────────────────
-// pending → confirmed → processing → shipped → delivered
-// pending → cancelled (at any stage before delivered)
+// pending → confirmed → processing → CAD → wax → casting → filing → setting → polishing → shipped → delivered
+// → cancelled (at any stage before delivered)
 
 export interface IOrderItem {
   product: mongoose.Types.ObjectId;
@@ -52,12 +52,15 @@ export interface IShippingAddress {
 }
 
 export interface IPaymentInfo {
-  method: "upi" | "bank_transfer" | "cod";
+  method: "razorpay" | "cod" | "upi" | "bank_transfer";
   transactionId?: string;
   status: "pending" | "received" | "verified" | "failed" | "refunded";
   paidAt?: Date;
   amount: number;
   notes?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
 }
 
 export interface IOrderTimeline {
@@ -70,6 +73,7 @@ export interface IOrderTimeline {
 export interface IOrder {
   _id: mongoose.Types.ObjectId;
   orderNumber: string;
+  user?: mongoose.Types.ObjectId;
   items: IOrderItem[];
   shippingAddress: IShippingAddress;
   payment: IPaymentInfo;
@@ -77,13 +81,30 @@ export interface IOrder {
   shippingCharge: number;
   discount: number;
   totalAmount: number;
-  status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
+  status:
+    | "pending"
+    | "confirmed"
+    | "processing"
+    | "cad_3d_print"
+    | "wax_treeing"
+    | "lost_wax_casting"
+    | "filing_cleanup"
+    | "setting"
+    | "polishing_finish"
+    | "shipped"
+    | "delivered"
+    | "cancelled";
   cancelReason?: string;
   timeline: IOrderTimeline[];
   trackingNumber?: string;
   trackingUrl?: string;
   notes?: string;
   customerNotes?: string;
+  emailsSent?: {
+    placed?: boolean;
+    paymentConfirmed?: boolean;
+    paymentFailed?: boolean;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -120,7 +141,7 @@ const PaymentInfoSchema = new Schema(
   {
     method: {
       type: String,
-      enum: ["upi", "bank_transfer", "cod"],
+      enum: ["razorpay", "cod", "upi", "bank_transfer"],
       required: true,
     },
     transactionId: { type: String, default: "" },
@@ -132,6 +153,9 @@ const PaymentInfoSchema = new Schema(
     paidAt: { type: Date },
     amount: { type: Number, required: true, min: 0 },
     notes: { type: String, default: "" },
+    razorpayOrderId: { type: String, default: "", index: true },
+    razorpayPaymentId: { type: String, default: "" },
+    razorpaySignature: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -152,6 +176,11 @@ const OrderSchema = new Schema<IOrder>(
       type: String,
       required: true,
       unique: true,
+    },
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
     },
     items: {
       type: [OrderItemSchema],
@@ -175,7 +204,20 @@ const OrderSchema = new Schema<IOrder>(
     totalAmount: { type: Number, required: true, min: 0 },
     status: {
       type: String,
-      enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"],
+      enum: [
+        "pending",
+        "confirmed",
+        "processing",
+        "cad_3d_print",
+        "wax_treeing",
+        "lost_wax_casting",
+        "filing_cleanup",
+        "setting",
+        "polishing_finish",
+        "shipped",
+        "delivered",
+        "cancelled",
+      ],
       default: "pending",
     },
     cancelReason: { type: String, default: "" },
@@ -184,17 +226,22 @@ const OrderSchema = new Schema<IOrder>(
     trackingUrl: { type: String, default: "" },
     notes: { type: String, default: "" },
     customerNotes: { type: String, default: "" },
+    emailsSent: {
+      placed: { type: Boolean, default: false },
+      paymentConfirmed: { type: Boolean, default: false },
+      paymentFailed: { type: Boolean, default: false },
+    },
   },
   { timestamps: true }
 );
 
-// Indexes
-OrderSchema.index({ orderNumber: 1 }, { unique: true });
+// Indexes (orderNumber unique is set on the field)
 OrderSchema.index({ "shippingAddress.phone": 1 });
 OrderSchema.index({ "shippingAddress.email": 1 });
 OrderSchema.index({ status: 1 });
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ "payment.status": 1 });
+OrderSchema.index({ user: 1 });
 
 const Order: Model<IOrder> =
   mongoose.models.Order || mongoose.model<IOrder>("Order", OrderSchema);

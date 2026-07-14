@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
 import { GENDER_OPTIONS } from "@/constants";
+import { isBarCategory } from "@/lib/bar-product";
 
 const basicInfoSchema = z.object({
   name: z.string().min(1, "Product name is required").max(200),
@@ -28,6 +29,8 @@ interface StepBasicInfoProps {
   onChange: (data: BasicInfoData) => void;
   categories: Array<{ _id: string; name: string; slug: string }>;
   onNext: () => void;
+  /** Override next-step button label (e.g. bars flow) */
+  nextLabel?: string;
 }
 
 const RING_SIZES = Array.from({ length: 21 }, (_, i) => String(i + 6)); // 6 to 26
@@ -73,6 +76,7 @@ export function StepBasicInfo({
   onChange,
   categories,
   onNext,
+  nextLabel,
 }: StepBasicInfoProps) {
   const [sizeInput, setSizeInput] = useState("");
   const [colorInput, setColorInput] = useState("");
@@ -93,12 +97,35 @@ export function StepBasicInfo({
   const colors = watch("colors") || [];
   const selectedCategoryId = watch("category");
 
+  const selectedCategory = useMemo(
+    () => categories.find((c) => c._id === selectedCategoryId),
+    [selectedCategoryId, categories]
+  );
+
   // Detect if the selected category is a ring category
   const isRingCategory = useMemo(() => {
-    const cat = categories.find((c) => c._id === selectedCategoryId);
-    if (!cat) return false;
-    return cat.name.toLowerCase().includes("ring") || cat.slug.toLowerCase().includes("ring");
-  }, [selectedCategoryId, categories]);
+    if (!selectedCategory) return false;
+    return (
+      selectedCategory.name.toLowerCase().includes("ring") ||
+      selectedCategory.slug.toLowerCase().includes("ring")
+    );
+  }, [selectedCategory]);
+
+  const isBar = useMemo(
+    () =>
+      isBarCategory(selectedCategory?.name, selectedCategory?.slug),
+    [selectedCategory]
+  );
+
+  const onSubmit = (values: BasicInfoData) => {
+    // Bars don't use jewelry sizes/colors — clear them on continue
+    if (isBar) {
+      onChange({ ...values, sizes: [], colors: [], gender: "unisex" });
+    } else {
+      onChange(values);
+    }
+    onNext();
+  };
 
   const addSize = () => {
     const trimmed = sizeInput.trim();
@@ -144,22 +171,29 @@ export function StepBasicInfo({
     setValue("colors", updated);
   };
 
-  const onSubmit = (values: BasicInfoData) => {
-    onChange(values);
-    onNext();
-  };
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <Card>
         <div className="p-5 md:p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-charcoal-700">
-            Basic Information
-          </h2>
+          <div>
+            <h2 className="text-lg font-semibold text-charcoal-700">
+              Basic Information
+            </h2>
+            {isBar && (
+              <p className="text-sm text-gold-700 mt-1 bg-gold-50 border border-gold-200 rounded-lg px-3 py-2">
+                Bar category selected — you&apos;ll enter weight options, dimensions,
+                purity, and origin on the next step.
+              </p>
+            )}
+          </div>
 
           <Input
             label="Product Name"
-            placeholder="e.g., Gold Diamond Ring"
+            placeholder={
+              isBar
+                ? "e.g., 24K Yellow Gold Bar"
+                : "e.g., Gold Diamond Ring"
+            }
             error={errors.name?.message}
             {...register("name")}
           />
@@ -176,12 +210,14 @@ export function StepBasicInfo({
               {...register("category")}
             />
 
-            <Select
-              label="Gender"
-              error={errors.gender?.message}
-              options={[...GENDER_OPTIONS]}
-              {...register("gender")}
-            />
+            {!isBar && (
+              <Select
+                label="Gender"
+                error={errors.gender?.message}
+                options={[...GENDER_OPTIONS]}
+                {...register("gender")}
+              />
+            )}
           </div>
 
           <div>
@@ -232,141 +268,142 @@ export function StepBasicInfo({
             )}
           </div>
 
-          {/* Sizes */}
-          <div>
-            <label className="block text-sm font-medium text-charcoal-600 mb-1.5">
-              Available Sizes
-            </label>
+          {/* Sizes & Colors — jewelry only */}
+          {!isBar && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-charcoal-600 mb-1.5">
+                  Available Sizes
+                </label>
 
-            {/* Ring size quick-select */}
-            {isRingCategory && (
-              <div className="mb-3">
-                <p className="text-xs text-charcoal-400 mb-2">Quick select ring sizes (6–26)</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {RING_SIZES.map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => toggleRingSize(size)}
-                      className={`h-8 w-10 rounded-lg border text-xs font-medium transition-all ${
-                        sizes.includes(size)
-                          ? "border-gold-400 bg-gold-50 text-gold-700"
-                          : "border-charcoal-200 bg-white text-charcoal-500 hover:border-charcoal-300"
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
+                {isRingCategory && (
+                  <div className="mb-3">
+                    <p className="text-xs text-charcoal-400 mb-2">Quick select ring sizes (6–26)</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {RING_SIZES.map((size) => (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => toggleRingSize(size)}
+                          className={`h-8 w-10 rounded-lg border text-xs font-medium transition-all ${
+                            sizes.includes(size)
+                              ? "border-gold-400 bg-gold-50 text-gold-700"
+                              : "border-charcoal-200 bg-white text-charcoal-500 hover:border-charcoal-300"
+                          }`}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 mb-2">
+                  <Input
+                    placeholder={isRingCategory ? "Custom size (e.g., 6.5)" : "e.g., 6, 7, 8, Free Size, S, M, L"}
+                    value={sizeInput}
+                    onChange={(e) => setSizeInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addSize();
+                      }
+                    }}
+                  />
+                  <Button type="button" variant="secondary" size="sm" onClick={addSize}>
+                    <Plus size={16} />
+                  </Button>
                 </div>
+                {sizes.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {sizes.map((size, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 rounded-full bg-charcoal-100 px-3 py-1 text-sm text-charcoal-700"
+                      >
+                        {size}
+                        <button
+                          type="button"
+                          onClick={() => removeSize(i)}
+                          className="text-charcoal-400 hover:text-error"
+                        >
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
 
-            <div className="flex gap-2 mb-2">
-              <Input
-                placeholder={isRingCategory ? "Custom size (e.g., 6.5)" : "e.g., 6, 7, 8, Free Size, S, M, L"}
-                value={sizeInput}
-                onChange={(e) => setSizeInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addSize();
-                  }
-                }}
-              />
-              <Button type="button" variant="secondary" size="sm" onClick={addSize}>
-                <Plus size={16} />
-              </Button>
-            </div>
-            {sizes.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {sizes.map((size, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1 rounded-full bg-charcoal-100 px-3 py-1 text-sm text-charcoal-700"
-                  >
-                    {size}
-                    <button
-                      type="button"
-                      onClick={() => removeSize(i)}
-                      className="text-charcoal-400 hover:text-error"
-                    >
-                      <X size={14} />
-                    </button>
-                  </span>
-                ))}
+              <div>
+                <label className="block text-sm font-medium text-charcoal-600 mb-1.5">
+                  Available Colors
+                </label>
+
+                <div className="mb-3">
+                  <p className="text-xs text-charcoal-400 mb-2">Common options (click to add)</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {COLOR_PRESETS.map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => toggleColorPreset(preset)}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                          colors.includes(preset)
+                            ? "border-gold-400 bg-gold-50 text-gold-700"
+                            : "border-charcoal-200 bg-white text-charcoal-500 hover:border-charcoal-300"
+                        }`}
+                      >
+                        {colors.includes(preset) ? <span className="mr-1">✓</span> : null}{preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mb-2">
+                  <Input
+                    placeholder="Custom color (e.g., Champagne Gold)"
+                    value={colorInput}
+                    onChange={(e) => setColorInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addColor();
+                      }
+                    }}
+                  />
+                  <Button type="button" variant="secondary" size="sm" onClick={addColor}>
+                    <Plus size={16} />
+                  </Button>
+                </div>
+                {colors.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {colors.map((color, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 rounded-full bg-charcoal-100 px-3 py-1 text-sm text-charcoal-700"
+                      >
+                        {color}
+                        <button
+                          type="button"
+                          onClick={() => removeColor(i)}
+                          className="text-charcoal-400 hover:text-error"
+                        >
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
-          {/* Colors */}
-          <div>
-            <label className="block text-sm font-medium text-charcoal-600 mb-1.5">
-              Available Colors
-            </label>
-
-            {/* Color presets */}
-            <div className="mb-3">
-              <p className="text-xs text-charcoal-400 mb-2">Common options (click to add)</p>
-              <div className="flex flex-wrap gap-1.5">
-                {COLOR_PRESETS.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => toggleColorPreset(preset)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                      colors.includes(preset)
-                        ? "border-gold-400 bg-gold-50 text-gold-700"
-                        : "border-charcoal-200 bg-white text-charcoal-500 hover:border-charcoal-300"
-                    }`}
-                  >
-                    {colors.includes(preset) ? <span className="mr-1">✓</span> : null}{preset}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-2 mb-2">
-              <Input
-                placeholder="Custom color (e.g., Champagne Gold)"
-                value={colorInput}
-                onChange={(e) => setColorInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addColor();
-                  }
-                }}
-              />
-              <Button type="button" variant="secondary" size="sm" onClick={addColor}>
-                <Plus size={16} />
-              </Button>
-            </div>
-            {colors.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {colors.map((color, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1 rounded-full bg-charcoal-100 px-3 py-1 text-sm text-charcoal-700"
-                  >
-                    {color}
-                    <button
-                      type="button"
-                      onClick={() => removeColor(i)}
-                      className="text-charcoal-400 hover:text-error"
-                    >
-                      <X size={14} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </Card>
 
       <div className="flex justify-end">
         <Button type="submit" variant="primary">
-          Continue to Composition
+          {nextLabel || (isBar ? "Continue to Bar Details" : "Continue to Composition")}
         </Button>
       </div>
     </form>

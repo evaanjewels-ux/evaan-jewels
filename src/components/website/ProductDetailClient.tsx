@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { Phone, MessageCircle, Heart } from "lucide-react";
+import { Phone, MessageCircle, Heart, ShoppingCart } from "lucide-react";
+import { toast } from "sonner";
 import { useWishlist } from "@/components/providers/WishlistProvider";
+import { useCart } from "@/components/providers/CartProvider";
 import { trackContact, trackAddToWishlist } from "@/lib/analytics";
 import { ProductGallery } from "./ProductGallery";
 import { PriceBreakdown } from "./PriceBreakdown";
 import { formatCurrency } from "@/lib/utils";
-import type { IMetalComposition, IGemstoneComposition } from "@/types";
+import type { IMetalComposition, IGemstoneComposition, ICartItem } from "@/types";
 import { calculateProductPrice } from "@/lib/pricing";
 
 /* ─── Metal variant info from the API ─── */
@@ -105,6 +107,21 @@ interface ProductData {
     variantId: string;
     variantName: string;
   };
+  barSpecs?: {
+    shape: string;
+    purity: number;
+    countryOfOrigin: string;
+    importer: string;
+    mintBrand?: string;
+    weightOptions: {
+      weightGrams: number;
+      sku?: string;
+      dimension?: string;
+      netWeight?: number;
+      isDefault?: boolean;
+      isOutOfStock?: boolean;
+    }[];
+  } | null;
 }
 
 interface ProductDetailClientProps {
@@ -136,6 +153,21 @@ export function ProductDetailClient({
   // ─── Selection state ─────────────────────────
   const hasSizes = (product.sizes?.length ?? 0) > 0;
   const hasColors = (product.colors?.length ?? 0) > 0;
+  const barWeightOptions = product.barSpecs?.weightOptions?.filter(
+    (w) => w.weightGrams > 0
+  ) || [];
+  const isBarProduct = barWeightOptions.length > 0;
+
+  const defaultBarWeight =
+    barWeightOptions.find((w) => w.isDefault) || barWeightOptions[0] || null;
+
+  const [selectedBarWeight, setSelectedBarWeight] = useState<number | null>(
+    defaultBarWeight?.weightGrams ?? null
+  );
+
+  const activeBarOption =
+    barWeightOptions.find((w) => w.weightGrams === selectedBarWeight) ||
+    defaultBarWeight;
 
   const [selectedSize, setSelectedSize] = useState<string | null>(
     hasSizes && product.sizes.length === 1 ? product.sizes[0] : null
@@ -194,13 +226,22 @@ export function ProductDetailClient({
 
   // ─── Price recalculation ────────────────────────
   const calculatedPrices = useMemo(() => {
+    const barWeight =
+      isBarProduct && activeBarOption?.weightGrams
+        ? activeBarOption.weightGrams
+        : null;
+
     // Build updated metalComposition with selected variant prices and weights
     const updatedMetal: IMetalComposition[] = product.metalComposition.map((mc) => {
       const metalId = getMetalId(mc.metal);
       const sel = selectedVariants[metalId];
       const pricePerGram = sel ? sel.pricePerGram : mc.pricePerGram;
-      // Guard: if selected weight is 0 (invalid), fall back to composition weight
-      const weightInGrams = (sel && sel.weightInGrams > 0) ? sel.weightInGrams : mc.weightInGrams;
+      // Bars: override weight from selected weight chip
+      let weightInGrams =
+        sel && sel.weightInGrams > 0 ? sel.weightInGrams : mc.weightInGrams;
+      if (barWeight !== null) {
+        weightInGrams = barWeight;
+      }
       return {
         metal: metalId as unknown as import("mongoose").Types.ObjectId,
         variantId: (sel?.variantId || mc.variantId) as unknown as import("mongoose").Types.ObjectId,
@@ -266,16 +307,21 @@ export function ProductDetailClient({
           }
         : undefined,
     });
-  }, [product, selectedVariants, selectedGemstone, availableMetals, chargeVariantPricePerGram]);
+  }, [product, selectedVariants, selectedGemstone, availableMetals, chargeVariantPricePerGram, isBarProduct, activeBarOption]);
 
   // ─── Dynamic metal composition for display ─────
   const displayMetalComposition = useMemo(() => {
+    const barWeight =
+      isBarProduct && activeBarOption?.weightGrams
+        ? activeBarOption.weightGrams
+        : null;
     return product.metalComposition.map((mc) => {
       const metalId = getMetalId(mc.metal);
       const sel = selectedVariants[metalId];
       const pricePerGram = sel ? sel.pricePerGram : mc.pricePerGram;
-      // Guard: if selected weight is 0, fall back to composition weight
-      const weightInGrams = (sel && sel.weightInGrams > 0) ? sel.weightInGrams : mc.weightInGrams;
+      let weightInGrams =
+        sel && sel.weightInGrams > 0 ? sel.weightInGrams : mc.weightInGrams;
+      if (barWeight !== null) weightInGrams = barWeight;
       return {
         variantName: sel?.variantName || mc.variantName,
         weightInGrams,
@@ -283,7 +329,7 @@ export function ProductDetailClient({
         subtotal: weightInGrams * pricePerGram,
       };
     });
-  }, [product.metalComposition, selectedVariants]);
+  }, [product.metalComposition, selectedVariants, isBarProduct, activeBarOption]);
 
   // ─── Dynamic gemstone composition for display ─────
   const displayGemstoneComposition = useMemo(() => {
@@ -401,6 +447,10 @@ export function ProductDetailClient({
 
     if (selectedSize) lines.push(`Size: ${selectedSize}`);
     if (selectedColor) lines.push(`Color: ${selectedColor}`);
+    if (isBarProduct && activeBarOption) {
+      lines.push(`Weight: ${activeBarOption.weightGrams} g`);
+      if (activeBarOption.sku) lines.push(`SKU: ${activeBarOption.sku}`);
+    }
 
     lines.push(`Price: ${formatCurrency(calculatedPrices.totalPrice)}`);
     lines.push(`\nPlease share more details. Thank you!`);
@@ -418,9 +468,12 @@ export function ProductDetailClient({
     selectedSize,
     selectedColor,
     calculatedPrices.totalPrice,
+    isBarProduct,
+    activeBarOption,
   ]);
 
   // ─── Wishlist ─────────────────────────────────────
+  const { addItem } = useCart();
   const wishlistItem = {
     productId: product._id,
     name: product.name,
@@ -432,9 +485,86 @@ export function ProductDetailClient({
 
   const inWishlist = isInWishlist(product._id);
 
+  const handleAddToCart = () => {
+    if (product.isOutOfStock) return;
+    if (activeBarOption?.isOutOfStock) {
+      toast.error("This weight is currently out of stock");
+      return;
+    }
+    if (hasSizes && !selectedSize) {
+      toast.error("Please select a size");
+      return;
+    }
+    if (hasColors && !selectedColor) {
+      toast.error("Please select a color");
+      return;
+    }
+
+    const selectedMetalVariants = Object.entries(selectedVariants).map(
+      ([metalId, v]) => {
+        const metal = availableMetals.find((m) => m._id === metalId);
+        const weightInGrams =
+          isBarProduct && activeBarOption?.weightGrams
+            ? activeBarOption.weightGrams
+            : v.weightInGrams;
+        return {
+          metalId,
+          metalName: metal?.name || "",
+          variantId: v.variantId,
+          variantName: v.variantName,
+          pricePerGram: v.pricePerGram,
+          weightInGrams,
+        };
+      }
+    );
+
+    const gemForCart = selectedGemstone
+      ? {
+          gemstoneId: selectedGemstone.gemstone,
+          gemstoneName:
+            availableGemstones.find((g) => g._id === selectedGemstone.gemstone)
+              ?.name || selectedGemstone.variantName,
+          variantId: selectedGemstone.variantId,
+          variantName: selectedGemstone.variantName,
+          weightInCarats: selectedGemstone.weightInCarats,
+          quantity: selectedGemstone.quantity,
+          pricePerCarat: selectedGemstone.pricePerCarat,
+        }
+      : undefined;
+
+    const metalKey = selectedMetalVariants
+      .map((m) => m.variantId)
+      .sort()
+      .join(",");
+    const gemKey = gemForCart?.variantId || "";
+    const barKey = isBarProduct ? String(activeBarOption?.weightGrams || "") : "";
+    const displayCode =
+      (isBarProduct && activeBarOption?.sku) || product.productCode;
+
+    const item: ICartItem = {
+      cartItemId: `${product._id}|${selectedSize || ""}|${selectedColor || ""}|${metalKey}|${gemKey}|${barKey}`,
+      productId: product._id,
+      name: product.name,
+      slug: product.slug,
+      productCode: displayCode,
+      thumbnailImage: product.thumbnailImage,
+      totalPrice: calculatedPrices.totalPrice,
+      quantity: 1,
+      category: product.category?.name,
+      metalComposition: displayMetalComposition,
+      selectedSize: selectedSize || undefined,
+      selectedColor: selectedColor || undefined,
+      selectedMetalVariants:
+        selectedMetalVariants.length > 0 ? selectedMetalVariants : undefined,
+      selectedGemstone: gemForCart,
+    };
+
+    addItem(item);
+  };
+
   return (
     <>
-    <div className="grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-12 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+    <div className="grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-12">
       {/* Gallery */}
       <div className="min-w-0">
         <ProductGallery
@@ -466,8 +596,40 @@ export function ProductDetailClient({
           />
         </div>
 
+        {/* Bar weight selector */}
+        {isBarProduct && (
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-charcoal-600 mb-2">
+              Select Weight (g)
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {barWeightOptions.map((opt) => {
+                const isActive = selectedBarWeight === opt.weightGrams;
+                const label = Number(opt.weightGrams.toFixed(3));
+                return (
+                  <button
+                    key={opt.weightGrams}
+                    type="button"
+                    disabled={opt.isOutOfStock}
+                    onClick={() => setSelectedBarWeight(opt.weightGrams)}
+                    className={`rounded-full border px-4 py-2 text-sm font-medium transition-all duration-150 ${
+                      isActive
+                        ? "border-gold-500 bg-gold-500 text-white shadow-sm"
+                        : opt.isOutOfStock
+                          ? "border-charcoal-100 bg-charcoal-50 text-charcoal-300 cursor-not-allowed line-through"
+                          : "border-charcoal-200 bg-white text-charcoal-700 hover:border-gold-400 hover:bg-gold-50"
+                    }`}
+                  >
+                    {label} g
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Metal Variant Switcher */}
-        {hasVariantSwitcher && (
+        {hasVariantSwitcher && !isBarProduct && (
           <div className="mt-6 space-y-4">
             <h3 className="text-sm font-semibold text-charcoal-600">
               Metal Variant
@@ -561,7 +723,7 @@ export function ProductDetailClient({
         )}
 
         {/* Size Selector */}
-        {hasSizes && (
+        {hasSizes && !isBarProduct && (
           <div className="mt-6">
             <div className="flex items-center gap-2 mb-2">
               <h3 className="text-sm font-semibold text-charcoal-600">Size</h3>
@@ -595,7 +757,7 @@ export function ProductDetailClient({
         )}
 
         {/* Color Selector */}
-        {hasColors && (
+        {hasColors && !isBarProduct && (
           <div className="mt-6">
             <div className="flex items-center gap-2 mb-2">
               <h3 className="text-sm font-semibold text-charcoal-600">Color</h3>
@@ -628,9 +790,106 @@ export function ProductDetailClient({
           </div>
         )}
 
+        {/* Bar product details grid */}
+        {isBarProduct && product.barSpecs && (
+          <div className="mt-8">
+            <h3 className="text-sm font-semibold text-charcoal-600 mb-3">
+              Product Details
+            </h3>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 text-sm">
+              <div>
+                <dt className="text-xs text-charcoal-400">SKU</dt>
+                <dd className="mt-0.5 font-mono text-charcoal-700 break-all">
+                  {activeBarOption?.sku || product.productCode}
+                </dd>
+              </div>
+              {activeBarOption?.dimension ? (
+                <div>
+                  <dt className="text-xs text-charcoal-400">Dimension</dt>
+                  <dd className="mt-0.5 font-medium text-charcoal-700">
+                    {activeBarOption.dimension}
+                  </dd>
+                </div>
+              ) : null}
+              <div>
+                <dt className="text-xs text-charcoal-400">Net Weight (g)</dt>
+                <dd className="mt-0.5 font-medium text-charcoal-700">
+                  {activeBarOption?.netWeight ||
+                    activeBarOption?.weightGrams ||
+                    product.netWeight}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-charcoal-400">Purity</dt>
+                <dd className="mt-0.5 font-medium text-charcoal-700">
+                  {product.barSpecs.purity}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-charcoal-400">Shape</dt>
+                <dd className="mt-0.5 font-medium text-charcoal-700">
+                  {product.barSpecs.shape}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-charcoal-400">Metal</dt>
+                <dd className="mt-0.5 font-medium text-charcoal-700">
+                  {(() => {
+                    const mc = product.metalComposition[0];
+                    if (!mc) return "—";
+                    const metalId = getMetalId(mc.metal);
+                    return (
+                      availableMetals.find((m) => m._id === metalId)?.name ||
+                      mc.variantName ||
+                      "—"
+                    );
+                  })()}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-charcoal-400">Denomination (g)</dt>
+                <dd className="mt-0.5 font-medium text-charcoal-700">
+                  {activeBarOption?.weightGrams ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-charcoal-400">Country Of Origin</dt>
+                <dd className="mt-0.5 font-medium text-charcoal-700">
+                  {product.barSpecs.countryOfOrigin || "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-charcoal-400">Importer</dt>
+                <dd className="mt-0.5 font-medium text-charcoal-700">
+                  {product.barSpecs.importer || "NA"}
+                </dd>
+              </div>
+              {product.barSpecs.mintBrand ? (
+                <div>
+                  <dt className="text-xs text-charcoal-400">Mint / Brand</dt>
+                  <dd className="mt-0.5 font-medium text-charcoal-700">
+                    {product.barSpecs.mintBrand}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          </div>
+        )}
+
         {/* CTA Buttons — hidden on mobile (shown in sticky bar instead) */}
         <div className="mt-6 hidden md:flex flex-col gap-3">
-          {/* Primary: WhatsApp enquiry with dynamic message containing selected variants */}
+          <button
+            type="button"
+            onClick={handleAddToCart}
+            disabled={product.isOutOfStock || !!activeBarOption?.isOutOfStock}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gold-500 text-white font-semibold px-6 py-3.5 text-sm shadow-sm transition-all duration-200 hover:bg-gold-600 hover:shadow-md active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-charcoal-200 disabled:text-charcoal-400"
+          >
+            <ShoppingCart className="h-4 w-4" />
+            {product.isOutOfStock || activeBarOption?.isOutOfStock
+              ? "Out of Stock"
+              : `Add to Cart — ${formatCurrency(calculatedPrices.totalPrice)}`}
+          </button>
+
           <a
             href={`https://wa.me/919654148574?text=${dynamicWhatsappMessage}`}
             target="_blank"
@@ -643,10 +902,10 @@ export function ProductDetailClient({
                 productPrice: calculatedPrices.totalPrice,
               })
             }
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#25D366] text-white font-semibold px-6 py-3.5 text-sm shadow-sm transition-all duration-200 hover:bg-[#20bd5a] hover:shadow-md active:scale-[0.97]"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#25D366] text-[#25D366] font-semibold px-6 py-3 text-sm transition-all duration-200 hover:bg-[#25D366]/5 active:scale-[0.97]"
           >
             <MessageCircle className="h-4 w-4" />
-            Enquire on WhatsApp — {product.isOutOfStock ? "Out of Stock" : formatCurrency(calculatedPrices.totalPrice)}
+            Enquire on WhatsApp
           </a>
 
           <div className="flex gap-3">
@@ -695,10 +954,21 @@ export function ProductDetailClient({
 
     {/* ── Sticky Mobile CTA Bar — sits above MobileBottomNav (≤58px + safe area) ── */}
     <div className="fixed left-0 right-0 z-40 md:hidden bottom-[calc(58px+env(safe-area-inset-bottom,0px))]">
-      {/* Backdrop blur frosted glass bar */}
       <div className="bg-white/90 backdrop-blur-md border-t border-gold-100 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 py-3">
         <div className="flex items-center gap-3 max-w-lg mx-auto">
-          {/* WhatsApp */}
+          <button
+            type="button"
+            onClick={handleAddToCart}
+            disabled={product.isOutOfStock || !!activeBarOption?.isOutOfStock}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gold-500 text-white font-semibold px-4 py-3.5 text-sm shadow-sm active:scale-[0.97] transition-transform disabled:bg-charcoal-200 disabled:text-charcoal-400"
+          >
+            <ShoppingCart className="h-4 w-4 shrink-0" />
+            <span className="truncate">
+              {product.isOutOfStock || activeBarOption?.isOutOfStock
+                ? "Out of Stock"
+                : formatCurrency(calculatedPrices.totalPrice)}
+            </span>
+          </button>
           <a
             href={`https://wa.me/919654148574?text=${dynamicWhatsappMessage}`}
             target="_blank"
@@ -711,26 +981,9 @@ export function ProductDetailClient({
                 productPrice: calculatedPrices.totalPrice,
               })
             }
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] text-white font-semibold px-4 py-3.5 text-sm shadow-sm active:scale-[0.97] transition-transform"
+            className="flex items-center justify-center gap-2 rounded-xl border border-[#25D366] bg-white px-4 py-3.5 text-sm font-semibold text-[#25D366] shadow-sm active:scale-[0.97] transition-transform"
           >
             <MessageCircle className="h-4 w-4 shrink-0" />
-            <span className="truncate">WhatsApp Enquiry</span>
-          </a>
-          {/* Call Us */}
-          <a
-            href="tel:+919654148574"
-            onClick={() =>
-              trackContact({
-                type: "call",
-                productId: product._id,
-                productName: product.name,
-                productPrice: calculatedPrices.totalPrice,
-              })
-            }
-            className="flex items-center justify-center gap-2 rounded-xl border border-charcoal-200 bg-white px-4 py-3.5 text-sm font-semibold text-charcoal-700 shadow-sm active:scale-[0.97] transition-transform"
-          >
-            <Phone className="h-4 w-4 shrink-0" />
-            <span>Call Us</span>
           </a>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,16 +8,38 @@ import { Check } from "lucide-react";
 import { Stepper } from "@/components/ui/Stepper";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { StepBasicInfo, type BasicInfoData } from "./StepBasicInfo";
-import { StepComposition, type CompositionData, type MetalEntry, type GemstoneEntry, type DisplayVariantEntry, type DisplayGemstoneEntry } from "./StepComposition";
+import {
+  StepComposition,
+  type CompositionData,
+  type MetalEntry,
+  type GemstoneEntry,
+  type DisplayVariantEntry,
+  type DisplayGemstoneEntry,
+} from "./StepComposition";
+import {
+  StepBarDetails,
+  getDefaultBarSpecs,
+  barSpecsToMetalComposition,
+  type BarSpecsData,
+} from "./StepBarDetails";
 import { StepCharges, type ChargesData } from "./StepCharges";
 import { StepImages, type ImagesData, type ColorImageEntry, type VideoEntry } from "./StepImages";
 import { StepReview } from "./StepReview";
 import { calculateProductPrice } from "@/lib/pricing";
 import { generateProductCode } from "@/lib/utils";
+import { isBarCategory, formatBarWeightLabel } from "@/lib/bar-product";
 
-const STEPS = [
+const JEWELRY_STEPS = [
   { id: 0, label: "Basic Info" },
   { id: 1, label: "Composition" },
+  { id: 2, label: "Charges" },
+  { id: 3, label: "Images & Flags" },
+  { id: 4, label: "Review" },
+];
+
+const BAR_STEPS = [
+  { id: 0, label: "Basic Info" },
+  { id: 1, label: "Bar Details" },
   { id: 2, label: "Charges" },
   { id: 3, label: "Images & Flags" },
   { id: 4, label: "Review" },
@@ -26,6 +48,7 @@ const STEPS = [
 export interface ProductFormData {
   basic: BasicInfoData;
   composition: CompositionData;
+  barSpecs: BarSpecsData;
   charges: ChargesData;
   images: ImagesData;
 }
@@ -49,7 +72,6 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
     return getDefaultFormData();
   });
 
-  // Track categories for product code generation
   const [categories, setCategories] = useState<
     Array<{ _id: string; name: string; slug: string }>
   >([]);
@@ -68,7 +90,6 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
             if (!cancelled) setCategories(d.data);
             return;
           }
-          // API returned success but empty data — may be a timing issue, retry
           if (attempt < retries - 1) {
             await new Promise((r) => setTimeout(r, 600));
           }
@@ -78,7 +99,6 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
           }
         }
       }
-      // Final fallback attempt
       try {
         const res = await fetch(`/api/categories?_t=${Date.now()}`, { cache: "no-store" });
         const d = await res.json();
@@ -91,8 +111,46 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
     };
 
     fetchCategories();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const selectedCategory = useMemo(
+    () => categories.find((c) => c._id === formData.basic.category),
+    [categories, formData.basic.category]
+  );
+
+  const isBar = useMemo(
+    () => isBarCategory(selectedCategory?.name, selectedCategory?.slug),
+    [selectedCategory]
+  );
+
+  const STEPS = isBar ? BAR_STEPS : JEWELRY_STEPS;
+
+  // Keep composition metals in sync when editing bar specs (for charges preview)
+  useEffect(() => {
+    if (!isBar) return;
+    const metals = barSpecsToMetalComposition(formData.barSpecs);
+    setFormData((prev) => {
+      const same =
+        prev.composition.metals.length === metals.length &&
+        prev.composition.metals[0]?.metalId === metals[0]?.metalId &&
+        prev.composition.metals[0]?.variantId === metals[0]?.variantId &&
+        prev.composition.metals[0]?.weightInGrams === metals[0]?.weightInGrams &&
+        prev.composition.metals[0]?.pricePerGram === metals[0]?.pricePerGram;
+      if (same) return prev;
+      return {
+        ...prev,
+        composition: {
+          metals,
+          gemstones: [],
+          displayVariants: [],
+          displayGemstones: [],
+        },
+      };
+    });
+  }, [isBar, formData.barSpecs]);
 
   const updateBasic = useCallback((data: BasicInfoData) => {
     setFormData((prev) => ({ ...prev, basic: data }));
@@ -100,6 +158,10 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
 
   const updateComposition = useCallback((data: CompositionData) => {
     setFormData((prev) => ({ ...prev, composition: data }));
+  }, []);
+
+  const updateBarSpecs = useCallback((data: BarSpecsData) => {
+    setFormData((prev) => ({ ...prev, barSpecs: data }));
   }, []);
 
   const updateCharges = useCallback((data: ChargesData) => {
@@ -123,9 +185,18 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const activeComposition = isBar
+    ? {
+        metals: barSpecsToMetalComposition(formData.barSpecs),
+        gemstones: [] as GemstoneEntry[],
+        displayVariants: [] as DisplayVariantEntry[],
+        displayGemstones: [] as DisplayGemstoneEntry[],
+      }
+    : formData.composition;
+
   const calculatePrices = () => {
     return calculateProductPrice({
-      metalComposition: formData.composition.metals.map((m: MetalEntry) => ({
+      metalComposition: activeComposition.metals.map((m: MetalEntry) => ({
         metal: m.metalId as unknown as import("mongoose").Types.ObjectId,
         variantId: m.variantId as unknown as import("mongoose").Types.ObjectId,
         variantName: m.variantName,
@@ -134,7 +205,7 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         subtotal: m.weightInGrams * m.pricePerGram,
         wastageCharges: m.wastageCharges,
       })),
-      gemstoneComposition: formData.composition.gemstones.map((g: GemstoneEntry) => ({
+      gemstoneComposition: activeComposition.gemstones.map((g: GemstoneEntry) => ({
         gemstone: g.gemstoneId as unknown as import("mongoose").Types.ObjectId,
         variantId: g.variantId as unknown as import("mongoose").Types.ObjectId,
         variantName: g.variantName,
@@ -152,53 +223,69 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
   };
 
   const handleSubmit = async () => {
-    // Client-side guard: require at least one image
     if (formData.images.images.length === 0) {
       toast.error("Please upload at least one product image");
       setCurrentStep(3);
       return;
     }
 
+    if (isBar) {
+      if (!formData.barSpecs.metalId || !formData.barSpecs.variantId) {
+        toast.error("Select metal and purity for this bar");
+        setCurrentStep(1);
+        return;
+      }
+      if (formData.barSpecs.weightOptions.length === 0) {
+        toast.error("Add at least one weight option");
+        setCurrentStep(1);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const prices = calculatePrices();
-
-      // Build the product payload
       const categorySlug =
         categories.find((c) => c._id === formData.basic.category)?.slug || "gen";
 
-      const payload = {
+      const metals = activeComposition.metals.filter(
+        (m: MetalEntry) => m.metalId !== "" && m.variantId !== ""
+      );
+      const defaultBarWeight =
+        formData.barSpecs.weightOptions.find((w) => w.isDefault) ||
+        formData.barSpecs.weightOptions[0];
+
+      const payload: Record<string, unknown> = {
         name: formData.basic.name,
         description: formData.basic.description,
         category: formData.basic.category,
-        gender: formData.basic.gender,
+        gender: isBar ? "unisex" : formData.basic.gender,
 
-        metalComposition: formData.composition.metals
-          .filter((m: MetalEntry) => m.metalId !== "" && m.variantId !== "")
-          .map((m: MetalEntry) => ({
-            metal: m.metalId,
-            variantId: m.variantId,
-            variantName: m.variantName,
-            weightInGrams: m.weightInGrams,
-            pricePerGram: m.pricePerGram,
-            subtotal: m.weightInGrams * m.pricePerGram,
-            wastageCharges: m.wastageCharges,
-          })),
-        gemstoneComposition: formData.composition.gemstones
-          .filter((g: GemstoneEntry) => g.gemstoneId !== "" && g.variantId !== "")
-          .map((g: GemstoneEntry) => ({
-            gemstone: g.gemstoneId,
-            variantId: g.variantId,
-            variantName: g.variantName,
-            weightInCarats: g.weightInCarats,
-            quantity: g.quantity,
-            pricePerCarat: g.pricePerCarat,
-            subtotal: g.weightInCarats * g.quantity * g.pricePerCarat,
-            wastageCharges: g.wastageCharges,
-          })),
+        metalComposition: metals.map((m: MetalEntry) => ({
+          metal: m.metalId,
+          variantId: m.variantId,
+          variantName: m.variantName,
+          weightInGrams: m.weightInGrams,
+          pricePerGram: m.pricePerGram,
+          subtotal: m.weightInGrams * m.pricePerGram,
+          wastageCharges: m.wastageCharges,
+        })),
+        gemstoneComposition: isBar
+          ? []
+          : formData.composition.gemstones
+              .filter((g: GemstoneEntry) => g.gemstoneId !== "" && g.variantId !== "")
+              .map((g: GemstoneEntry) => ({
+                gemstone: g.gemstoneId,
+                variantId: g.variantId,
+                variantName: g.variantName,
+                weightInCarats: g.weightInCarats,
+                quantity: g.quantity,
+                pricePerCarat: g.pricePerCarat,
+                subtotal: g.weightInCarats * g.quantity * g.pricePerCarat,
+                wastageCharges: g.wastageCharges,
+              })),
 
         makingCharges: formData.charges.makingCharges,
-        // wastageCharges is now stored per-composition item above
         wastageCharges: { type: "fixed", value: 0 },
         gstPercentage: formData.charges.gstPercentage,
         otherCharges: formData.charges.otherCharges,
@@ -217,60 +304,90 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         metaTitle: formData.images.metaTitle || undefined,
         metaDescription: formData.images.metaDescription || undefined,
 
-        colorImages: formData.images.colorImages.filter(
-          (ci: ColorImageEntry) => ci.images.length > 0
-        ),
+        colorImages: isBar
+          ? []
+          : formData.images.colorImages.filter(
+              (ci: ColorImageEntry) => ci.images.length > 0
+            ),
 
-        videos: formData.images.videos.filter(
-          (v: VideoEntry) => v.url.length > 0
-        ),
+        videos: formData.images.videos.filter((v: VideoEntry) => v.url.length > 0),
 
         chargeBasedOnVariant: formData.charges.chargeBasedOnVariant || undefined,
 
-        displayVariants: formData.composition.displayVariants
-          .filter((dv: DisplayVariantEntry) => dv.metal && dv.variants.length > 0),
+        displayVariants: isBar
+          ? []
+          : formData.composition.displayVariants.filter(
+              (dv: DisplayVariantEntry) => dv.metal && dv.variants.length > 0
+            ),
 
-        displayGemstones: formData.composition.displayGemstones
-          .filter((dg: DisplayGemstoneEntry) => dg.gemstone && dg.variantId),
+        displayGemstones: isBar
+          ? []
+          : formData.composition.displayGemstones.filter(
+              (dg: DisplayGemstoneEntry) => dg.gemstone && dg.variantId
+            ),
 
-        sizes: formData.basic.sizes || [],
-        colors: formData.basic.colors || [],
+        sizes: isBar ? [] : formData.basic.sizes || [],
+        colors: isBar ? [] : formData.basic.colors || [],
 
-        netWeight: formData.composition.metals.reduce(
-          (s: number, m: MetalEntry) => s + m.weightInGrams,
-          0
-        ),
-        grossWeight:
-          formData.composition.metals.reduce(
-            (s: number, m: MetalEntry) => s + m.weightInGrams,
-            0
-          ) +
-          formData.composition.gemstones
-            .filter((g: GemstoneEntry) => g.gemstoneId !== "" && g.variantId !== "")
-            .reduce(
-              // weightInCarats stores value in carats (1 carat = 0.2g)
-              (s: number, g: GemstoneEntry) => s + g.weightInCarats * g.quantity * 0.2,
+        netWeight: isBar
+          ? defaultBarWeight?.netWeight || defaultBarWeight?.weightGrams || 0
+          : formData.composition.metals.reduce(
+              (s: number, m: MetalEntry) => s + m.weightInGrams,
               0
             ),
+        grossWeight: isBar
+          ? defaultBarWeight?.weightGrams || 0
+          : formData.composition.metals.reduce(
+              (s: number, m: MetalEntry) => s + m.weightInGrams,
+              0
+            ) +
+            formData.composition.gemstones
+              .filter((g: GemstoneEntry) => g.gemstoneId !== "" && g.variantId !== "")
+              .reduce(
+                (s: number, g: GemstoneEntry) =>
+                  s + g.weightInCarats * g.quantity * 0.2,
+                0
+              ),
       };
 
-      // For create, generate product code
+      if (isBar) {
+        payload.barSpecs = {
+          shape: formData.barSpecs.shape,
+          purity: formData.barSpecs.purity,
+          countryOfOrigin: formData.barSpecs.countryOfOrigin || "India",
+          importer: formData.barSpecs.importer || "NA",
+          mintBrand: formData.barSpecs.mintBrand || "",
+          weightOptions: formData.barSpecs.weightOptions.map((w) => ({
+            weightGrams: w.weightGrams,
+            sku: w.sku || "",
+            dimension: w.dimension || "",
+            netWeight: w.netWeight || w.weightGrams,
+            isDefault: w.isDefault,
+            isOutOfStock: w.isOutOfStock,
+          })),
+        };
+      } else {
+        payload.barSpecs = null;
+      }
+
       if (mode === "create") {
-        const codePrefix = categorySlug.substring(0, 3).toUpperCase();
-        (payload as Record<string, unknown>).productCode = generateProductCode(
-          codePrefix,
-          Date.now() % 10000
-        );
+        const codePrefix = isBar
+          ? "BAR"
+          : categorySlug.substring(0, 3).toUpperCase();
+        const skuFromWeight = defaultBarWeight?.sku?.trim();
+        payload.productCode =
+          isBar && skuFromWeight
+            ? skuFromWeight
+            : generateProductCode(codePrefix, Date.now() % 10000);
       }
 
       const url =
         mode === "edit" ? `/api/products/${productId}` : "/api/products";
       const method = mode === "edit" ? "PUT" : "POST";
 
-      // Retry up to 2 times on network/server failures
       let result = null;
       let lastError = "";
-      const productCode = (payload as Record<string, unknown>).productCode as string | undefined;
+      const productCode = payload.productCode as string | undefined;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const res = await fetch(url, {
@@ -281,15 +398,9 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
 
           result = await res.json();
           if (result.success) break;
-
-          // Don't retry validation errors — they'll fail again
           if (res.status === 400) break;
-
           lastError = result.error || "Failed to save product";
         } catch {
-          // Network error — for create mode, check if the product was already
-          // created on the server before retrying (the response may have timed
-          // out even though the product was saved successfully).
           if (mode === "create" && productCode) {
             try {
               const checkRes = await fetch(
@@ -323,7 +434,9 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         toast.success(
           mode === "edit"
             ? "Product updated successfully"
-            : "Product created successfully"
+            : isBar
+              ? `Bar product created (${formatBarWeightLabel(defaultBarWeight?.weightGrams || 0)} default)`
+              : "Product created successfully"
         );
         setTimeout(() => {
           router.push("/admin/products");
@@ -338,6 +451,9 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
       setIsSubmitting(false);
     }
   };
+
+  // Stable no-op for bar charges (composition edits happen on Bar Details step)
+  const noopCompositionChange = useCallback((_data: CompositionData) => {}, []);
 
   if (isSuccess) {
     return (
@@ -364,18 +480,34 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
         items={[
           { label: "Dashboard", href: "/admin/dashboard" },
           { label: "Products", href: "/admin/products" },
-          { label: mode === "edit" ? "Edit Product" : "Add Product" },
+          {
+            label: mode === "edit"
+              ? isBar
+                ? "Edit Bar"
+                : "Edit Product"
+              : isBar
+                ? "Add Bar"
+                : "Add Product",
+          },
         ]}
       />
 
       <div>
         <h1 className="text-2xl font-heading font-bold text-charcoal-700">
-          {mode === "edit" ? "Edit Product" : "Add New Product"}
+          {mode === "edit"
+            ? isBar
+              ? "Edit Bar Product"
+              : "Edit Product"
+            : isBar
+              ? "Add New Bar"
+              : "Add New Product"}
         </h1>
         <p className="text-sm text-charcoal-400 mt-1">
-          {mode === "edit"
-            ? "Update product details, composition, and pricing"
-            : "Create a new product with detailed composition and pricing"}
+          {isBar
+            ? "Create a bullion bar with weight options, purity, dimensions, and origin details"
+            : mode === "edit"
+              ? "Update product details, composition, and pricing"
+              : "Create a new product with detailed composition and pricing"}
         </p>
       </div>
 
@@ -383,7 +515,7 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
 
       <AnimatePresence mode="wait">
         <motion.div
-          key={currentStep}
+          key={`${isBar ? "bar" : "jewelry"}-${currentStep}`}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
@@ -397,7 +529,15 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
               onNext={goNext}
             />
           )}
-          {currentStep === 1 && (
+          {currentStep === 1 && isBar && (
+            <StepBarDetails
+              data={formData.barSpecs}
+              onChange={updateBarSpecs}
+              onNext={goNext}
+              onBack={goBack}
+            />
+          )}
+          {currentStep === 1 && !isBar && (
             <StepComposition
               data={formData.composition}
               onChange={updateComposition}
@@ -409,8 +549,8 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
             <StepCharges
               data={formData.charges}
               onChange={updateCharges}
-              compositionData={formData.composition}
-              onCompositionChange={updateComposition}
+              compositionData={activeComposition}
+              onCompositionChange={isBar ? noopCompositionChange : updateComposition}
               onNext={goNext}
               onBack={goBack}
             />
@@ -419,7 +559,7 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
             <StepImages
               data={formData.images}
               onChange={updateImages}
-              colors={formData.basic.colors}
+              colors={isBar ? [] : formData.basic.colors}
               onNext={goNext}
               onBack={goBack}
             />
@@ -434,6 +574,7 @@ export function ProductForm({ mode, initialData, productId }: ProductFormProps) 
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
               mode={mode}
+              isBar={isBar}
             />
           )}
         </motion.div>
@@ -458,6 +599,7 @@ function getDefaultFormData(): ProductFormData {
       displayVariants: [],
       displayGemstones: [],
     },
+    barSpecs: getDefaultBarSpecs(),
     charges: {
       makingCharges: { type: "fixed", value: 0 },
       gstPercentage: 3,
@@ -488,6 +630,60 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
     value: 0,
   };
   const otherCharges = (data.otherCharges as Array<Record<string, unknown>>) || [];
+  const rawBar = (data.barSpecs as Record<string, unknown>) || null;
+  const firstMetal = metalComposition[0];
+
+  const metalRef = firstMetal?.metal as Record<string, unknown> | string | null | undefined;
+  const metalId =
+    typeof metalRef === "object" && metalRef !== null
+      ? (metalRef._id as string) || ""
+      : (metalRef as string) || "";
+  const metalName =
+    typeof metalRef === "object" && metalRef !== null
+      ? (metalRef.name as string) || ""
+      : "";
+
+  const weightOptionsFromBar =
+    ((rawBar?.weightOptions as Array<Record<string, unknown>>) || []).map(
+      (w, i) => ({
+        weightGrams: (w.weightGrams as number) || 0,
+        sku: (w.sku as string) || "",
+        dimension: (w.dimension as string) || "",
+        netWeight: (w.netWeight as number) || (w.weightGrams as number) || 0,
+        isDefault: (w.isDefault as boolean) ?? i === 0,
+        isOutOfStock: (w.isOutOfStock as boolean) ?? false,
+      })
+    );
+
+  const barSpecs: BarSpecsData = {
+    shape: (rawBar?.shape as string) || "Rectangular Ingot",
+    purity: (rawBar?.purity as number) || 999.9,
+    countryOfOrigin: (rawBar?.countryOfOrigin as string) || "India",
+    importer: (rawBar?.importer as string) || "NA",
+    mintBrand: (rawBar?.mintBrand as string) || "",
+    weightOptions:
+      weightOptionsFromBar.length > 0
+        ? weightOptionsFromBar
+        : getDefaultBarSpecs().weightOptions,
+    metalId,
+    metalName,
+    variantId: (firstMetal?.variantId as string) || "",
+    variantName: (firstMetal?.variantName as string) || "",
+    pricePerGram: (firstMetal?.pricePerGram as number) || 0,
+  };
+
+  if (weightOptionsFromBar.length === 0 && firstMetal?.weightInGrams) {
+    barSpecs.weightOptions = [
+      {
+        weightGrams: firstMetal.weightInGrams as number,
+        sku: (data.productCode as string) || "",
+        dimension: "",
+        netWeight: (data.netWeight as number) || (firstMetal.weightInGrams as number),
+        isDefault: true,
+        isOutOfStock: false,
+      },
+    ];
+  }
 
   return {
     basic: {
@@ -504,17 +700,17 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
     composition: {
       metals: metalComposition
         .map((m) => {
-          const metalRef = m.metal as Record<string, unknown> | string | null;
+          const mRef = m.metal as Record<string, unknown> | string | null;
           const mWastage = (m.wastageCharges as Record<string, unknown>) || null;
-          const metalId =
-            (typeof metalRef === "object" && metalRef !== null)
-              ? (metalRef._id as string) || ""
-              : (metalRef as string) || "";
+          const mId =
+            typeof mRef === "object" && mRef !== null
+              ? (mRef._id as string) || ""
+              : (mRef as string) || "";
           return {
-            metalId,
+            metalId: mId,
             metalName:
-              (typeof metalRef === "object" && metalRef !== null)
-                ? (metalRef.name as string) || ""
+              typeof mRef === "object" && mRef !== null
+                ? (mRef.name as string) || ""
                 : "",
             variantId: (m.variantId as string) || "",
             variantName: (m.variantName as string) || "",
@@ -522,26 +718,27 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
             pricePerGram: (m.pricePerGram as number) || 0,
             wastageCharges: mWastage
               ? {
-                  type: (mWastage.type as "fixed" | "percentage" | "per_gram") || "percentage",
+                  type:
+                    (mWastage.type as "fixed" | "percentage" | "per_gram") ||
+                    "percentage",
                   value: (mWastage.value as number) || 0,
                 }
               : { type: "percentage" as const, value: 0 },
           };
         })
-        // Drop any composition entries whose metal ref was deleted from the DB
         .filter((m) => m.metalId !== ""),
       gemstones: gemstoneComposition
         .map((g) => {
           const gemRef = g.gemstone as Record<string, unknown> | string | null;
           const gWastage = (g.wastageCharges as Record<string, unknown>) || null;
           const gemstoneId =
-            (typeof gemRef === "object" && gemRef !== null)
+            typeof gemRef === "object" && gemRef !== null
               ? (gemRef._id as string) || ""
               : (gemRef as string) || "";
           return {
             gemstoneId,
             gemstoneName:
-              (typeof gemRef === "object" && gemRef !== null)
+              typeof gemRef === "object" && gemRef !== null
                 ? (gemRef.name as string) || ""
                 : "",
             variantId: (g.variantId as string) || "",
@@ -551,27 +748,40 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
             pricePerCarat: (g.pricePerCarat as number) || 0,
             wastageCharges: gWastage
               ? {
-                  type: (gWastage.type as "fixed" | "percentage" | "per_gram") || "percentage",
+                  type:
+                    (gWastage.type as "fixed" | "percentage" | "per_gram") ||
+                    "percentage",
                   value: (gWastage.value as number) || 0,
                 }
               : { type: "percentage" as const, value: 0 },
           };
         })
-        // Drop any composition entries whose gemstone ref was deleted from the DB
         .filter((g) => g.gemstoneId !== ""),
-      displayVariants: ((data.displayVariants as Array<Record<string, unknown>>) || []).map((dv) => ({
-        metal: (typeof dv.metal === "object" && dv.metal !== null
-          ? (dv.metal as Record<string, unknown>)._id as string
-          : dv.metal as string) || "",
-        variants: ((dv.variants as Array<Record<string, unknown>>) || (dv.variantIds as string[] || []).map((vid: string) => ({ variantId: String(vid), weightInGrams: 0 }))).map((v: Record<string, unknown>) => ({
+      displayVariants: (
+        (data.displayVariants as Array<Record<string, unknown>>) || []
+      ).map((dv) => ({
+        metal:
+          (typeof dv.metal === "object" && dv.metal !== null
+            ? ((dv.metal as Record<string, unknown>)._id as string)
+            : (dv.metal as string)) || "",
+        variants: (
+          (dv.variants as Array<Record<string, unknown>>) ||
+          (dv.variantIds as string[] || []).map((vid: string) => ({
+            variantId: String(vid),
+            weightInGrams: 0,
+          }))
+        ).map((v: Record<string, unknown>) => ({
           variantId: String(v.variantId || ""),
           weightInGrams: (v.weightInGrams as number) || 0,
         })),
       })),
-      displayGemstones: ((data.displayGemstones as Array<Record<string, unknown>>) || []).map((dg) => ({
-        gemstone: (typeof dg.gemstone === "object" && dg.gemstone !== null
-          ? (dg.gemstone as Record<string, unknown>)._id as string
-          : dg.gemstone as string) || "",
+      displayGemstones: (
+        (data.displayGemstones as Array<Record<string, unknown>>) || []
+      ).map((dg) => ({
+        gemstone:
+          (typeof dg.gemstone === "object" && dg.gemstone !== null
+            ? ((dg.gemstone as Record<string, unknown>)._id as string)
+            : (dg.gemstone as string)) || "",
         variantId: (dg.variantId as string) || "",
         variantName: (dg.variantName as string) || "",
         weightInCarats: (dg.weightInCarats as number) || 0,
@@ -579,9 +789,11 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
         pricePerCarat: (dg.pricePerCarat as number) || 0,
       })),
     },
+    barSpecs,
     charges: {
       makingCharges: {
-        type: (makingCharges.type as "fixed" | "percentage" | "per_gram") || "fixed",
+        type:
+          (makingCharges.type as "fixed" | "percentage" | "per_gram") || "fixed",
         value: (makingCharges.value as number) || 0,
       },
       gstPercentage: (data.gstPercentage as number) ?? 3,
@@ -591,15 +803,23 @@ function parseInitialData(d: Record<string, unknown>): ProductFormData {
       })),
       chargeBasedOnVariant: data.chargeBasedOnVariant
         ? {
-            metalId: ((data.chargeBasedOnVariant as Record<string, unknown>).metalId as string) || "",
-            variantId: ((data.chargeBasedOnVariant as Record<string, unknown>).variantId as string) || "",
-            variantName: ((data.chargeBasedOnVariant as Record<string, unknown>).variantName as string) || "",
+            metalId:
+              ((data.chargeBasedOnVariant as Record<string, unknown>)
+                .metalId as string) || "",
+            variantId:
+              ((data.chargeBasedOnVariant as Record<string, unknown>)
+                .variantId as string) || "",
+            variantName:
+              ((data.chargeBasedOnVariant as Record<string, unknown>)
+                .variantName as string) || "",
           }
         : undefined,
     },
     images: {
       images: (data.images as string[]) || [],
-      colorImages: ((data.colorImages as Array<Record<string, unknown>>) || []).map((ci) => ({
+      colorImages: (
+        (data.colorImages as Array<Record<string, unknown>>) || []
+      ).map((ci) => ({
         color: (ci.color as string) || "",
         images: (ci.images as string[]) || [],
       })),

@@ -2,37 +2,58 @@ import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
 import { NextResponse } from "next/server";
 
-// Edge-safe auth — no bcrypt / mongoose imports
 const { auth } = NextAuth(authConfig);
+
+const ADMIN_ROLES = new Set(["admin", "super_admin"]);
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
+  const role = req.auth?.user?.role;
+  const accountType = req.auth?.user?.accountType;
+  const isAdmin =
+    accountType === "admin" || (role ? ADMIN_ROLES.has(role) : false);
+  const isCustomer = accountType === "customer" || role === "customer";
 
-  // Public admin routes (login page)
-  const publicAdminRoutes = ["/login"];
-
-  // Check if it's an admin route
-  const isAdminRoute = pathname.startsWith("/admin");
-
-  const isPublicAdminRoute = publicAdminRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
-
-  // If authenticated user tries to access login, redirect to dashboard
-  if (isPublicAdminRoute && req.auth) {
-    return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+  // Admin login page
+  if (pathname === "/login" || pathname.startsWith("/login/")) {
+    if (req.auth && isAdmin) {
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+    }
+    return NextResponse.next();
   }
 
-  // If unauthenticated user tries to access admin routes, redirect to login
-  if (isAdminRoute && !req.auth) {
-    const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+  // Admin panel — admins only
+  if (pathname.startsWith("/admin")) {
+    if (!req.auth || !isAdmin) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
+  }
+
+  // Customer account area (except login/register)
+  const isPublicAccount =
+    pathname.startsWith("/account/login") ||
+    pathname.startsWith("/account/register");
+
+  if (pathname.startsWith("/account") && !isPublicAccount) {
+    if (!req.auth || !isCustomer) {
+      const loginUrl = new URL("/account/login", req.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
+  }
+
+  // Logged-in customer on login/register → account home
+  if (isPublicAccount && req.auth && isCustomer) {
+    return NextResponse.redirect(new URL("/account", req.url));
   }
 
   return NextResponse.next();
 });
 
 export const config = {
-  matcher: ["/admin/:path*", "/login"],
+  matcher: ["/admin", "/admin/:path*", "/login", "/account", "/account/:path*"],
 };

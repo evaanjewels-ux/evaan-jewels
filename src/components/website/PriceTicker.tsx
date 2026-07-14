@@ -48,7 +48,7 @@ export function PriceTicker() {
 
   if (loading || !rates.length) return null;
 
-  // Duplicate items for seamless infinite loop
+  // Two identical halves so translateX(-50%) loops seamlessly
   const tickerItems = [...rates, ...rates];
 
   return (
@@ -61,21 +61,23 @@ export function PriceTicker() {
           </span>
         </div>
 
-        {/* Scrolling ticker */}
+        {/* Scrolling ticker — w-max + shrink-0 so the track is wider than the viewport */}
         <div className="ml-20 sm:ml-28 overflow-hidden">
-          <div className="flex animate-ticker whitespace-nowrap">
+          <div className="flex w-max animate-ticker will-change-transform">
             {tickerItems.map((rate, idx) => (
               <div
                 key={idx}
-                className="inline-flex items-center gap-2 px-6 sm:px-8 border-r border-gold-200/50"
+                className="inline-flex shrink-0 items-center gap-2 px-6 sm:px-8 border-r border-gold-200/50"
               >
-                <span className="text-xs sm:text-sm font-medium text-charcoal-600">
+                <span className="text-xs sm:text-sm font-medium text-charcoal-600 whitespace-nowrap">
                   {rate.name} {rate.variantName}
                 </span>
-                <span className="font-mono text-sm sm:text-base font-bold text-gold-700">
+                <span className="font-mono text-sm sm:text-base font-bold text-gold-700 whitespace-nowrap">
                   {formatCurrency(rate.price)}
                 </span>
-                <span className="text-[10px] text-charcoal-400">{rate.unit}</span>
+                <span className="text-[10px] text-charcoal-400 whitespace-nowrap">
+                  {rate.unit}
+                </span>
               </div>
             ))}
           </div>

@@ -9,12 +9,12 @@ export function CartIcon() {
   return (
     <button
       onClick={toggleCart}
-      className="relative flex h-10 w-10 items-center justify-center rounded-lg text-charcoal-300 transition-colors hover:bg-white/10 hover:text-gold-400"
+      className="relative flex h-10 w-10 items-center justify-center rounded-lg text-gold-200 transition-colors hover:bg-white/10 hover:text-gold-300"
       aria-label={`Shopping cart with ${itemCount} items`}
     >
       <ShoppingBag className="h-5 w-5" />
       {itemCount > 0 && (
-        <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-gold-500 text-[10px] font-bold text-white">
+        <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-gold-400 text-[10px] font-bold text-[#7A1E28]">
           {itemCount > 99 ? "99+" : itemCount}
         </span>
       )}

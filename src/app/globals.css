@@ -192,8 +192,8 @@ h3, h4, h5, h6 {
 
 /* ─── Ticker Animation ─── */
 @keyframes ticker {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
 }
 
 .animate-ticker {
@@ -202,6 +202,12 @@ h3, h4, h5, h6 {
 
 .animate-ticker:hover {
   animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ticker {
+    animation: ticker 60s linear infinite !important;
+  }
 }
 
 /* ─── Hero Section Animations ─── */
@@ -301,5 +307,11 @@ h3, h4, h5, h6 {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Keep live rates marquee moving (slowed above); don't kill it */
+  .animate-ticker {
+    animation-duration: 60s !important;
+    animation-iteration-count: infinite !important;
   }
 }

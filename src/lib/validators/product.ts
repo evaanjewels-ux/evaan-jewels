@@ -63,6 +63,27 @@ const chargeBasedOnVariantSchema = z
   })
   .optional();
 
+const barWeightOptionSchema = z.object({
+  weightGrams: z.number().positive("Weight must be positive"),
+  sku: z.string().optional().default(""),
+  dimension: z.string().optional().default(""),
+  netWeight: z.number().min(0).optional(),
+  isDefault: z.boolean().optional().default(false),
+  isOutOfStock: z.boolean().optional().default(false),
+});
+
+const barSpecsSchema = z.object({
+  shape: z.string().min(1, "Shape is required").default("Rectangular Ingot"),
+  purity: z.number().positive("Purity is required").default(999.9),
+  countryOfOrigin: z.string().min(1).default("India"),
+  importer: z.string().default("NA"),
+  mintBrand: z.string().optional().default(""),
+  weightOptions: z
+    .array(barWeightOptionSchema)
+    .min(1, "Add at least one weight option")
+    .default([]),
+});
+
 export const productCreateSchema = z.object({
   name: z.string().min(1, "Product name is required").max(200).trim(),
   productCode: z.string().min(1).optional(),
@@ -75,6 +96,8 @@ export const productCreateSchema = z.object({
     .array(gemstoneCompositionSchema)
     .optional()
     .default([]),
+
+  barSpecs: barSpecsSchema.nullable().optional(),
 
   makingCharges: chargesSchema.optional().default({ type: "fixed", value: 0 }),
   wastageCharges: chargesSchema

@@ -5,23 +5,20 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { trackContact } from "@/lib/analytics";
 import Link from "next/link";
-import {
-  Search,
-  Package,
-  CheckCircle2,
-  Clock,
-  Truck,
-  Ban,
-  ArrowRight,
-  ShoppingBag,
-} from "lucide-react";
+import { Search, ArrowRight, ShoppingBag, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
+import {
+  ORDER_STATUS_FLOW,
+  ORDER_STATUS_CONFIG,
+  getOrderStatusIndex,
+  type OrderStatus,
+} from "@/constants/orderStatus";
 
 interface TimelineEntry {
   status: string;
-  note: string;
+  message: string;
   timestamp: string;
 }
 
@@ -29,14 +26,12 @@ interface TrackedOrder {
   orderNumber: string;
   status: string;
   items: {
-    productSnapshot: {
-      name: string;
-      productCode: string;
-      thumbnailImage: string;
-      price: number;
-    };
+    name: string;
     quantity: number;
-    priceAtOrder: number;
+    price: number;
+    total: number;
+    thumbnailImage: string;
+    slug: string;
   }[];
   subtotal: number;
   shippingCharge: number;
@@ -44,28 +39,13 @@ interface TrackedOrder {
   payment: {
     method: string;
     status: string;
+    amount: number;
   };
-  trackingInfo?: {
-    provider?: string;
-    trackingNumber?: string;
-    trackingUrl?: string;
-    estimatedDelivery?: string;
-  };
+  trackingNumber?: string;
+  trackingUrl?: string;
   timeline: TimelineEntry[];
   createdAt: string;
 }
-
-const STATUS_CONFIG: Record<
-  string,
-  { label: string; color: string; icon: React.ElementType }
-> = {
-  pending: { label: "Pending", color: "text-yellow-600 bg-yellow-50", icon: Clock },
-  confirmed: { label: "Confirmed", color: "text-blue-600 bg-blue-50", icon: CheckCircle2 },
-  processing: { label: "Processing", color: "text-indigo-600 bg-indigo-50", icon: Package },
-  shipped: { label: "Shipped", color: "text-purple-600 bg-purple-50", icon: Truck },
-  delivered: { label: "Delivered", color: "text-green-600 bg-green-50", icon: CheckCircle2 },
-  cancelled: { label: "Cancelled", color: "text-red-600 bg-red-50", icon: Ban },
-};
 
 const PAYMENT_STATUS_LABELS: Record<string, string> = {
   pending: "Payment Pending",
@@ -75,6 +55,12 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   refunded: "Refunded",
 };
 
+function getStatusConfig(status: string) {
+  return (
+    ORDER_STATUS_CONFIG[status as OrderStatus] || ORDER_STATUS_CONFIG.pending
+  );
+}
+
 export function TrackOrderClient() {
   const searchParams = useSearchParams();
   const [orderNumber, setOrderNumber] = useState("");
@@ -82,21 +68,15 @@ export function TrackOrderClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [order, setOrder] = useState<TrackedOrder | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [autoTracked, setAutoTracked] = useState(false);
 
-  // Pre-fill from URL params
-  useEffect(() => {
-    const on = searchParams.get("orderNumber");
-    if (on) setOrderNumber(on);
-  }, [searchParams]);
-
-  const handleTrack = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orderNumber.trim()) {
+  const trackOrder = async (on: string, ph: string) => {
+    if (!on.trim()) {
       toast.error("Please enter your order number");
       return;
     }
-    if (!phone.trim() || phone.length < 10) {
-      toast.error("Please enter a valid phone number");
+    if (!/^[6-9]\d{9}$/.test(ph.trim())) {
+      toast.error("Please enter a valid 10-digit phone number");
       return;
     }
 
@@ -106,7 +86,7 @@ export function TrackOrderClient() {
 
     try {
       const res = await fetch(
-        `/api/orders/track?orderNumber=${encodeURIComponent(orderNumber.trim())}&phone=${encodeURIComponent(phone.trim())}`
+        `/api/orders/track?orderNumber=${encodeURIComponent(on.trim())}&phone=${encodeURIComponent(ph.trim())}`
       );
       const data = await res.json();
 
@@ -122,7 +102,51 @@ export function TrackOrderClient() {
     }
   };
 
-  const statusConfig = order ? STATUS_CONFIG[order.status] || STATUS_CONFIG.pending : null;
+  useEffect(() => {
+    const on = searchParams.get("orderNumber");
+    const ph = searchParams.get("phone");
+    if (on) setOrderNumber(on);
+    if (ph) setPhone(ph);
+    if (on && ph && !autoTracked) {
+      setAutoTracked(true);
+      void trackOrder(on, ph);
+    }
+  }, [searchParams, autoTracked]);
+
+  const handleTrack = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await trackOrder(orderNumber, phone);
+  };
+
+  const statusConfig = order ? getStatusConfig(order.status) : null;
+  const currentIndex = order ? getOrderStatusIndex(order.status) : -1;
+  const isCancelled = order?.status === "cancelled";
+
+  /** Build display stages from the full flow + any timeline timestamps */
+  const displayStages = order
+    ? (isCancelled
+        ? (["cancelled"] as const)
+        : ORDER_STATUS_FLOW
+      ).map((status) => {
+        const conf = getStatusConfig(status);
+        const stageIndex = getOrderStatusIndex(status);
+        const timelineEntry = [...order.timeline]
+          .reverse()
+          .find((t) => t.status === status);
+        const isCurrent = status === order.status;
+        const isComplete =
+          !isCancelled && currentIndex >= 0 && stageIndex <= currentIndex;
+
+        return {
+          status,
+          label: conf.label,
+          description: timelineEntry?.message || conf.description,
+          timestamp: timelineEntry?.timestamp,
+          isCurrent,
+          isComplete,
+        };
+      })
+    : [];
 
   return (
     <div className="py-8 md:py-12">
@@ -144,7 +168,6 @@ export function TrackOrderClient() {
           </p>
         </div>
 
-        {/* Search Form */}
         <form
           onSubmit={handleTrack}
           className="mx-auto mt-8 max-w-lg rounded-xl border border-charcoal-100 bg-white p-6 shadow-card"
@@ -158,7 +181,7 @@ export function TrackOrderClient() {
                 type="text"
                 value={orderNumber}
                 onChange={(e) => setOrderNumber(e.target.value.toUpperCase())}
-                placeholder="EJ-2025-0001"
+                placeholder="EJ-2026-0001"
                 className="mt-1 w-full rounded-lg border border-charcoal-200 px-4 py-2.5 font-mono text-sm text-charcoal-700 placeholder:text-charcoal-300 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20"
               />
             </div>
@@ -169,7 +192,9 @@ export function TrackOrderClient() {
               <input
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) =>
+                  setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
+                }
                 placeholder="10-digit mobile number"
                 maxLength={10}
                 className="mt-1 w-full rounded-lg border border-charcoal-200 px-4 py-2.5 text-sm text-charcoal-700 placeholder:text-charcoal-300 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20"
@@ -189,7 +214,6 @@ export function TrackOrderClient() {
           </button>
         </form>
 
-        {/* Not Found */}
         {notFound && (
           <div className="mt-8 rounded-xl border border-red-100 bg-red-50 p-6 text-center">
             <Ban className="mx-auto h-10 w-10 text-red-400" />
@@ -202,10 +226,8 @@ export function TrackOrderClient() {
           </div>
         )}
 
-        {/* Order Result */}
         {order && statusConfig && (
           <div className="mt-8 space-y-6">
-            {/* Status Banner */}
             <div
               className={cn(
                 "flex items-center gap-3 rounded-xl p-4",
@@ -219,36 +241,25 @@ export function TrackOrderClient() {
                   Order {order.orderNumber} &middot;{" "}
                   {PAYMENT_STATUS_LABELS[order.payment.status] ||
                     order.payment.status}
+                  {order.payment.method === "razorpay"
+                    ? " · Razorpay"
+                    : order.payment.method === "cod"
+                      ? " · COD"
+                      : ""}
                 </p>
               </div>
             </div>
 
-            {/* Tracking Info */}
-            {order.trackingInfo?.trackingNumber && (
+            {order.trackingNumber && (
               <div className="rounded-xl border border-charcoal-100 bg-white p-4 shadow-card">
                 <h3 className="text-sm font-semibold text-charcoal-700">
                   Shipping Details
                 </h3>
                 <div className="mt-2 space-y-1 text-sm text-charcoal-500">
-                  {order.trackingInfo.provider && (
-                    <p>Carrier: {order.trackingInfo.provider}</p>
-                  )}
-                  <p>Tracking: {order.trackingInfo.trackingNumber}</p>
-                  {order.trackingInfo.estimatedDelivery && (
-                    <p>
-                      Est. Delivery:{" "}
-                      {new Date(
-                        order.trackingInfo.estimatedDelivery
-                      ).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </p>
-                  )}
-                  {order.trackingInfo.trackingUrl && (
+                  <p>Tracking: {order.trackingNumber}</p>
+                  {order.trackingUrl && (
                     <a
-                      href={order.trackingInfo.trackingUrl}
+                      href={order.trackingUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-gold-600 hover:underline"
@@ -261,7 +272,6 @@ export function TrackOrderClient() {
               </div>
             )}
 
-            {/* Items */}
             <div className="rounded-xl border border-charcoal-100 bg-white p-4 shadow-card">
               <h3 className="text-sm font-semibold text-charcoal-700">
                 Order Items
@@ -270,10 +280,10 @@ export function TrackOrderClient() {
                 {order.items.map((item, i) => (
                   <li key={i} className="flex items-center gap-3 py-3">
                     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-charcoal-50">
-                      {item.productSnapshot?.thumbnailImage ? (
+                      {item.thumbnailImage ? (
                         <Image
-                          src={item.productSnapshot.thumbnailImage}
-                          alt={item.productSnapshot?.name ?? "Product"}
+                          src={item.thumbnailImage}
+                          alt={item.name}
                           fill
                           className="object-cover"
                           sizes="56px"
@@ -284,15 +294,14 @@ export function TrackOrderClient() {
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-charcoal-700">
-                        {item.productSnapshot?.name ?? "Unknown Product"}
+                        {item.name}
                       </p>
                       <p className="text-xs text-charcoal-400">
-                        {item.productSnapshot?.productCode} &middot; Qty:{" "}
-                        {item.quantity}
+                        Qty: {item.quantity}
                       </p>
                     </div>
                     <p className="font-mono text-sm font-semibold text-charcoal-700">
-                      {formatCurrency(item.priceAtOrder * item.quantity)}
+                      {formatCurrency(item.total)}
                     </p>
                   </li>
                 ))}
@@ -321,52 +330,68 @@ export function TrackOrderClient() {
               </div>
             </div>
 
-            {/* Timeline */}
-            {order.timeline.length > 0 && (
-              <div className="rounded-xl border border-charcoal-100 bg-white p-4 shadow-card">
-                <h3 className="text-sm font-semibold text-charcoal-700">
-                  Order Timeline
-                </h3>
-                <ol className="relative mt-4 ml-3 border-l border-charcoal-200">
-                  {order.timeline.map((entry, i) => {
-                    const conf = STATUS_CONFIG[entry.status] || STATUS_CONFIG.pending;
-                    return (
-                      <li key={i} className="mb-6 ml-6 last:mb-0">
-                        <span
+            <div className="rounded-xl border border-charcoal-100 bg-white p-4 shadow-card">
+              <h3 className="text-sm font-semibold text-charcoal-700">
+                Order Timeline
+              </h3>
+              <ol className="relative mt-4 ml-3 border-l border-charcoal-200">
+                {displayStages.map((stage) => (
+                  <li key={stage.status} className="mb-6 ml-6 last:mb-0">
+                    <span
+                      className={cn(
+                        "absolute -left-[9px] flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-white",
+                        stage.isCurrent
+                          ? "bg-gold-500 ring-4 ring-gold-200"
+                          : stage.isComplete
+                            ? "bg-gold-400"
+                            : "bg-charcoal-200"
+                      )}
+                    />
+                    <div>
+                      <p
+                        className={cn(
+                          "text-sm font-medium",
+                          stage.isCurrent || stage.isComplete
+                            ? "text-charcoal-700"
+                            : "text-charcoal-400"
+                        )}
+                      >
+                        {stage.label}
+                        {stage.isCurrent && (
+                          <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-gold-600">
+                            Current
+                          </span>
+                        )}
+                      </p>
+                      {stage.description && (
+                        <p
                           className={cn(
-                            "absolute -left-[9px] flex h-4.5 w-4.5 items-center justify-center rounded-full border-2 border-white",
-                            i === 0
-                              ? "bg-gold-500"
-                              : "bg-charcoal-200"
+                            "text-xs",
+                            stage.isComplete || stage.isCurrent
+                              ? "text-charcoal-400"
+                              : "text-charcoal-300"
                           )}
-                        />
-                        <div>
-                          <p className="text-sm font-medium text-charcoal-700">
-                            {conf.label}
-                          </p>
-                          {entry.note && (
-                            <p className="text-xs text-charcoal-400">
-                              {entry.note}
-                            </p>
-                          )}
-                          <time className="text-[10px] text-charcoal-300">
-                            {new Date(entry.timestamp).toLocaleString("en-IN", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </time>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              </div>
-            )}
+                        >
+                          {stage.description}
+                        </p>
+                      )}
+                      {stage.timestamp && (
+                        <time className="text-[10px] text-charcoal-300">
+                          {new Date(stage.timestamp).toLocaleString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </time>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
 
-            {/* Help */}
             <div className="text-center text-xs text-charcoal-400">
               Need help?{" "}
               <a
@@ -380,7 +405,6 @@ export function TrackOrderClient() {
           </div>
         )}
 
-        {/* No search yet */}
         {!order && !notFound && !isLoading && (
           <div className="mt-12 text-center">
             <ShoppingBag className="mx-auto h-16 w-16 text-charcoal-200" />

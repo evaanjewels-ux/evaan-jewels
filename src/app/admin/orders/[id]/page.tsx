@@ -6,11 +6,6 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Clock,
-  CheckCircle2,
-  Package,
-  Truck,
-  Ban,
   Phone,
   Mail,
   MapPin,
@@ -18,6 +13,7 @@ import {
   ShoppingBag,
   Save,
   ExternalLink,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/Card";
@@ -26,18 +22,24 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { PriceDisplay } from "@/components/ui/PriceDisplay";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { formatDate, formatCurrency, cn } from "@/lib/utils";
+import {
+  ORDER_STATUS_FLOW,
+  ORDER_STATUS_CONFIG,
+  getOrderStatusIndex,
+  type OrderStatus,
+} from "@/constants/orderStatus";
 
 interface OrderDetail {
   _id: string;
   orderNumber: string;
   status: string;
   items: {
-    productId: string;
+    product: string;
     productSnapshot: {
       name: string;
       productCode: string;
       thumbnailImage: string;
-      price: number;
+      totalPrice: number;
       slug: string;
       selectedSize?: string;
       selectedColor?: string;
@@ -56,7 +58,8 @@ interface OrderDetail {
       };
     };
     quantity: number;
-    priceAtOrder: number;
+    price: number;
+    total: number;
   }[];
   shippingAddress: {
     fullName: string;
@@ -72,25 +75,24 @@ interface OrderDetail {
   payment: {
     method: string;
     status: string;
+    amount: number;
     transactionId?: string;
     paidAt?: string;
-    verifiedAt?: string;
+    notes?: string;
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
   };
   subtotal: number;
   shippingCharge: number;
   totalAmount: number;
   customerNotes?: string;
-  adminNotes?: string;
+  notes?: string;
   cancelReason?: string;
-  trackingInfo?: {
-    provider?: string;
-    trackingNumber?: string;
-    trackingUrl?: string;
-    estimatedDelivery?: string;
-  };
+  trackingNumber?: string;
+  trackingUrl?: string;
   timeline: {
     status: string;
-    note: string;
+    message: string;
     timestamp: string;
     updatedBy?: string;
   }[];
@@ -98,22 +100,9 @@ interface OrderDetail {
   updatedAt: string;
 }
 
-const STATUS_FLOW = [
-  "pending",
-  "confirmed",
-  "processing",
-  "shipped",
-  "delivered",
-];
+const STATUS_FLOW = [...ORDER_STATUS_FLOW];
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  pending: { label: "Pending", color: "text-yellow-600 bg-yellow-50 border-yellow-200", icon: Clock },
-  confirmed: { label: "Confirmed", color: "text-blue-600 bg-blue-50 border-blue-200", icon: CheckCircle2 },
-  processing: { label: "Processing", color: "text-indigo-600 bg-indigo-50 border-indigo-200", icon: Package },
-  shipped: { label: "Shipped", color: "text-purple-600 bg-purple-50 border-purple-200", icon: Truck },
-  delivered: { label: "Delivered", color: "text-green-600 bg-green-50 border-green-200", icon: CheckCircle2 },
-  cancelled: { label: "Cancelled", color: "text-red-600 bg-red-50 border-red-200", icon: Ban },
-};
+const STATUS_CONFIG = ORDER_STATUS_CONFIG;
 
 const PAYMENT_STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
@@ -151,10 +140,8 @@ export default function OrderDetailPage() {
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
 
   // Tracking
-  const [trackingProvider, setTrackingProvider] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
-  const [estimatedDelivery, setEstimatedDelivery] = useState("");
 
   // Cancel
   const [cancelReason, setCancelReason] = useState("");
@@ -171,17 +158,9 @@ export default function OrderDetailPage() {
         setOrder(data.data);
         setNewStatus(data.data.status);
         setNewPaymentStatus(data.data.payment.status);
-        setAdminNotes(data.data.adminNotes || "");
-        if (data.data.trackingInfo) {
-          setTrackingProvider(data.data.trackingInfo.provider || "");
-          setTrackingNumber(data.data.trackingInfo.trackingNumber || "");
-          setTrackingUrl(data.data.trackingInfo.trackingUrl || "");
-          setEstimatedDelivery(
-            data.data.trackingInfo.estimatedDelivery
-              ? new Date(data.data.trackingInfo.estimatedDelivery).toISOString().split("T")[0]
-              : ""
-          );
-        }
+        setAdminNotes(data.data.notes || "");
+        setTrackingNumber(data.data.trackingNumber || "");
+        setTrackingUrl(data.data.trackingUrl || "");
       } else {
         toast.error("Order not found");
         router.push("/admin/orders");
@@ -204,21 +183,17 @@ export default function OrderDetailPage() {
     try {
       const body: Record<string, unknown> = {
         status: newStatus,
-        note: statusNote,
-        adminNotes,
+        message: statusNote,
+        notes: adminNotes,
       };
 
       if (newStatus === "cancelled") {
         body.cancelReason = cancelReason;
       }
 
-      if (newStatus === "shipped") {
-        body.trackingInfo = {
-          provider: trackingProvider,
-          trackingNumber,
-          trackingUrl,
-          estimatedDelivery: estimatedDelivery || undefined,
-        };
+      if (newStatus === "shipped" || trackingNumber || trackingUrl) {
+        body.trackingNumber = trackingNumber;
+        body.trackingUrl = trackingUrl;
       }
 
       const res = await fetch(`/api/orders/${orderId}`, {
@@ -252,9 +227,9 @@ export default function OrderDetailPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paymentStatus: newPaymentStatus,
+          status: newPaymentStatus,
           transactionId: transactionId || undefined,
-          note: paymentNote,
+          notes: paymentNote,
         }),
       });
       const data = await res.json();
@@ -288,9 +263,10 @@ export default function OrderDetailPage() {
 
   if (!order) return null;
 
-  const statusConf = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+  const statusConf =
+    STATUS_CONFIG[order.status as OrderStatus] || STATUS_CONFIG.pending;
   const StatusIcon = statusConf.icon;
-  const currentStatusIndex = STATUS_FLOW.indexOf(order.status);
+  const currentStatusIndex = getOrderStatusIndex(order.status);
 
   return (
     <div className="space-y-6">
@@ -330,52 +306,56 @@ export default function OrderDetailPage() {
       {/* Status Progress */}
       {order.status !== "cancelled" && (
         <Card className="p-4">
-          <div className="flex items-center justify-between">
-            {STATUS_FLOW.map((s, i) => {
-              const conf = STATUS_CONFIG[s];
-              const Icon = conf.icon;
-              const isActive = i <= currentStatusIndex;
-              const isCurrent = s === order.status;
+          <div className="overflow-x-auto pb-1">
+            <div className="flex min-w-max items-start justify-between gap-1">
+              {STATUS_FLOW.map((s, i) => {
+                const conf = STATUS_CONFIG[s];
+                const Icon = conf.icon;
+                const isActive = i <= currentStatusIndex;
+                const isCurrent = s === order.status;
 
-              return (
-                <div key={s} className="flex items-center">
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors",
-                        isCurrent
-                          ? "border-gold-500 bg-gold-500 text-white"
-                          : isActive
-                            ? "border-gold-300 bg-gold-50 text-gold-600"
-                            : "border-charcoal-200 bg-charcoal-50 text-charcoal-400"
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
+                return (
+                  <div key={s} className="flex items-center">
+                    <div className="flex w-16 flex-col items-center sm:w-20">
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors",
+                          isCurrent
+                            ? "border-gold-500 bg-gold-500 text-white"
+                            : isActive
+                              ? "border-gold-300 bg-gold-50 text-gold-600"
+                              : "border-charcoal-200 bg-charcoal-50 text-charcoal-400"
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </div>
+                      <span
+                        className={cn(
+                          "mt-1 text-center text-[9px] font-medium leading-tight sm:text-[10px]",
+                          isCurrent
+                            ? "text-gold-700"
+                            : isActive
+                              ? "text-charcoal-600"
+                              : "text-charcoal-400"
+                        )}
+                      >
+                        {conf.label}
+                      </span>
                     </div>
-                    <span
-                      className={cn(
-                        "mt-1 hidden text-xs font-medium sm:block",
-                        isCurrent
-                          ? "text-gold-700"
-                          : isActive
-                            ? "text-charcoal-600"
-                            : "text-charcoal-400"
-                      )}
-                    >
-                      {conf.label}
-                    </span>
+                    {i < STATUS_FLOW.length - 1 && (
+                      <div
+                        className={cn(
+                          "mx-0.5 mt-3.5 h-0.5 w-4 shrink-0 sm:w-6",
+                          i < currentStatusIndex
+                            ? "bg-gold-400"
+                            : "bg-charcoal-200"
+                        )}
+                      />
+                    )}
                   </div>
-                  {i < STATUS_FLOW.length - 1 && (
-                    <div
-                      className={cn(
-                        "mx-1 h-0.5 w-6 sm:w-12 md:w-20",
-                        i < currentStatusIndex ? "bg-gold-400" : "bg-charcoal-200"
-                      )}
-                    />
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </Card>
       )}
@@ -443,9 +423,9 @@ export default function OrderDetailPage() {
                     )}
                   </div>
                   <div className="text-right shrink-0">
-                    <PriceDisplay amount={item.priceAtOrder * item.quantity} size="sm" />
+                    <PriceDisplay amount={item.total} size="sm" />
                     <p className="text-xs text-charcoal-400">
-                      @ {formatCurrency(item.priceAtOrder)} each
+                      @ {formatCurrency(item.price)} each
                     </p>
                   </div>
                 </li>
@@ -526,19 +506,31 @@ export default function OrderDetailPage() {
             <h2 className="text-base font-semibold text-charcoal-700">Order Timeline</h2>
             <ol className="relative mt-4 ml-3 border-l border-charcoal-200">
               {order.timeline.map((entry, i) => {
-                const conf = STATUS_CONFIG[entry.status] || STATUS_CONFIG.pending;
+                const conf =
+                  STATUS_CONFIG[entry.status as OrderStatus] ||
+                  STATUS_CONFIG.pending;
+                const isLatest = i === order.timeline.length - 1;
                 return (
                   <li key={i} className="mb-6 ml-6 last:mb-0">
                     <span
                       className={cn(
                         "absolute -left-[9px] flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-white",
-                        i === 0 ? "bg-gold-500" : "bg-charcoal-200"
+                        isLatest
+                          ? "bg-gold-500 ring-4 ring-gold-200"
+                          : "bg-gold-400"
                       )}
                     />
                     <div>
-                      <p className="text-sm font-medium text-charcoal-700">{conf.label}</p>
-                      {entry.note && (
-                        <p className="text-xs text-charcoal-400">{entry.note}</p>
+                      <p className="text-sm font-medium text-charcoal-700">
+                        {conf.label}
+                        {isLatest && (
+                          <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-gold-600">
+                            Current
+                          </span>
+                        )}
+                      </p>
+                      {entry.message && (
+                        <p className="text-xs text-charcoal-400">{entry.message}</p>
                       )}
                       {entry.updatedBy && (
                         <p className="text-[10px] text-charcoal-300">by {entry.updatedBy}</p>
@@ -576,7 +568,7 @@ export default function OrderDetailPage() {
               >
                 {[...STATUS_FLOW, "cancelled"].map((s) => (
                   <option key={s} value={s}>
-                    {STATUS_CONFIG[s]?.label || s}
+                    {STATUS_CONFIG[s as OrderStatus]?.label || s}
                   </option>
                 ))}
               </select>
@@ -596,13 +588,6 @@ export default function OrderDetailPage() {
                   <p className="text-xs font-medium text-charcoal-600">Tracking Details</p>
                   <input
                     type="text"
-                    placeholder="Carrier (e.g., BlueDart)"
-                    value={trackingProvider}
-                    onChange={(e) => setTrackingProvider(e.target.value)}
-                    className="w-full rounded-lg border border-charcoal-200 px-3 py-1.5 text-sm"
-                  />
-                  <input
-                    type="text"
                     placeholder="Tracking Number"
                     value={trackingNumber}
                     onChange={(e) => setTrackingNumber(e.target.value)}
@@ -613,13 +598,6 @@ export default function OrderDetailPage() {
                     placeholder="Tracking URL"
                     value={trackingUrl}
                     onChange={(e) => setTrackingUrl(e.target.value)}
-                    className="w-full rounded-lg border border-charcoal-200 px-3 py-1.5 text-sm"
-                  />
-                  <input
-                    type="date"
-                    placeholder="Est. Delivery"
-                    value={estimatedDelivery}
-                    onChange={(e) => setEstimatedDelivery(e.target.value)}
                     className="w-full rounded-lg border border-charcoal-200 px-3 py-1.5 text-sm"
                   />
                 </div>
@@ -659,9 +637,11 @@ export default function OrderDetailPage() {
                 <span className="font-medium capitalize text-charcoal-700">
                   {order.payment.method === "cod"
                     ? "Cash on Delivery"
-                    : order.payment.method === "bank_transfer"
-                      ? "Bank Transfer"
-                      : "UPI"}
+                    : order.payment.method === "razorpay"
+                      ? "Razorpay"
+                      : order.payment.method === "bank_transfer"
+                        ? "Bank Transfer"
+                        : "UPI"}
                 </span>
               </div>
               <div className="mt-1 flex justify-between text-charcoal-400">
@@ -670,6 +650,22 @@ export default function OrderDetailPage() {
                   {order.payment.status.charAt(0).toUpperCase() + order.payment.status.slice(1)}
                 </Badge>
               </div>
+              {order.payment.razorpayPaymentId && (
+                <div className="mt-1 flex justify-between gap-2 text-charcoal-400">
+                  <span>Razorpay Pay</span>
+                  <span className="font-mono text-xs text-charcoal-700 break-all text-right">
+                    {order.payment.razorpayPaymentId}
+                  </span>
+                </div>
+              )}
+              {order.payment.razorpayOrderId && (
+                <div className="mt-1 flex justify-between gap-2 text-charcoal-400">
+                  <span>Razorpay Order</span>
+                  <span className="font-mono text-xs text-charcoal-700 break-all text-right">
+                    {order.payment.razorpayOrderId}
+                  </span>
+                </div>
+              )}
               {order.payment.transactionId && (
                 <div className="mt-1 flex justify-between text-charcoal-400">
                   <span>Txn ID</span>

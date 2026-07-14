@@ -1,19 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { trackContact } from "@/lib/analytics";
-import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   ShoppingBag,
   CreditCard,
   Truck,
   CheckCircle2,
   ArrowLeft,
-  QrCode,
-  Building2,
   Banknote,
+  ShieldCheck,
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,7 +29,7 @@ const INDIAN_STATES = [
   "Uttarakhand", "West Bengal",
 ];
 
-type PaymentMethod = "upi" | "bank_transfer" | "cod";
+type PaymentMethod = "razorpay" | "cod";
 
 interface ShippingForm {
   fullName: string;
@@ -44,15 +43,42 @@ interface ShippingForm {
   landmark: string;
 }
 
+interface OrderResult {
+  orderNumber: string;
+  totalAmount: number;
+  paymentMethod: PaymentMethod;
+  paymentStatus: string;
+}
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (event: string, handler: (response: unknown) => void) => void;
+    };
+  }
+}
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 export function CheckoutClient() {
-  const router = useRouter();
+  const { data: session } = useSession();
   const { items, subtotal, clearCart } = useCart();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderResult, setOrderResult] = useState<{
-    orderNumber: string;
-    totalAmount: number;
-  } | null>(null);
+  const [orderResult, setOrderResult] = useState<OrderResult | null>(null);
 
   const [shipping, setShipping] = useState<ShippingForm>({
     fullName: "",
@@ -66,24 +92,44 @@ export function CheckoutClient() {
     landmark: "",
   });
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("upi");
+  useEffect(() => {
+    if (session?.user?.accountType !== "customer") return;
+    setShipping((s) => ({
+      ...s,
+      fullName: s.fullName || session.user?.name || "",
+      email: s.email || session.user?.email || "",
+    }));
+    fetch("/api/account/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success) return;
+        setShipping((s) => ({
+          ...s,
+          fullName: s.fullName || d.data.name || "",
+          email: s.email || d.data.email || "",
+          phone: s.phone || d.data.phone || "",
+        }));
+      })
+      .catch(() => {});
+  }, [session]);
+
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("razorpay");
   const [customerNotes, setCustomerNotes] = useState("");
 
   const shippingCharge = subtotal >= 50000 ? 0 : 500;
   const totalAmount = subtotal + shippingCharge;
 
-  const upiId = process.env.NEXT_PUBLIC_UPI_ID || "your-upi@upi";
-  const upiName = process.env.NEXT_PUBLIC_UPI_NAME || "Evaan Jewels";
-  const upiQrImage = process.env.NEXT_PUBLIC_UPI_QR_IMAGE || "";
-
-  // Validation
   const validateShipping = (): boolean => {
     if (!shipping.fullName.trim()) {
       toast.error("Full name is required");
       return false;
     }
-    if (!shipping.phone.trim() || shipping.phone.length < 10) {
-      toast.error("Valid phone number is required");
+    if (!/^[6-9]\d{9}$/.test(shipping.phone.trim())) {
+      toast.error("Enter a valid 10-digit Indian mobile number");
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shipping.email.trim())) {
+      toast.error("Valid email is required for order receipts");
       return false;
     }
     if (!shipping.addressLine1.trim()) {
@@ -98,11 +144,115 @@ export function CheckoutClient() {
       toast.error("State is required");
       return false;
     }
-    if (!shipping.pincode.trim() || shipping.pincode.length !== 6) {
+    if (!/^\d{6}$/.test(shipping.pincode.trim())) {
       toast.error("Valid 6-digit pincode is required");
       return false;
     }
     return true;
+  };
+
+  const buildPayload = useCallback(
+    () => ({
+      items: items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        selectedSize: item.selectedSize,
+        selectedColor: item.selectedColor,
+        selectedMetalVariants: item.selectedMetalVariants,
+        selectedGemstone: item.selectedGemstone,
+      })),
+      shippingAddress: shipping,
+      paymentMethod,
+      customerNotes,
+    }),
+    [items, shipping, paymentMethod, customerNotes]
+  );
+
+  const openRazorpayCheckout = async (data: {
+    _id: string;
+    orderNumber: string;
+    totalAmount: number;
+    razorpay: {
+      keyId: string;
+      orderId: string;
+      amount: number;
+      currency: string;
+      name: string;
+      description: string;
+      prefill: { name: string; email?: string; contact: string };
+    };
+  }) => {
+    const loaded = await loadRazorpayScript();
+    if (!loaded || !window.Razorpay) {
+      toast.error("Could not load payment gateway. Please try again.");
+      return;
+    }
+
+    const rz = data.razorpay;
+
+    await new Promise<void>((resolve) => {
+      const rzp = new window.Razorpay!({
+        key: rz.keyId,
+        amount: rz.amount,
+        currency: rz.currency,
+        name: rz.name,
+        description: rz.description,
+        order_id: rz.orderId,
+        prefill: rz.prefill,
+        theme: { color: "#C9A227" },
+        handler: async (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            const verifyRes = await fetch("/api/payments/razorpay/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                orderId: data._id,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (!verifyData.success) {
+              toast.error(verifyData.error || "Payment verification failed");
+              resolve();
+              return;
+            }
+            setOrderResult({
+              orderNumber: verifyData.data.orderNumber,
+              totalAmount: verifyData.data.totalAmount,
+              paymentMethod: "razorpay",
+              paymentStatus: verifyData.data.paymentStatus,
+            });
+            clearCart();
+            setStep(3);
+            toast.success("Payment successful!");
+          } catch {
+            toast.error("Payment received but verification failed. Contact support with your order number.");
+          } finally {
+            resolve();
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast.info(
+              `Payment cancelled. Your order ${data.orderNumber} is saved — you can pay later via Track Order / WhatsApp.`
+            );
+            resolve();
+          },
+        },
+      });
+
+      rzp.on("payment.failed", () => {
+        toast.error("Payment failed. Please try again.");
+      });
+
+      rzp.open();
+    });
   };
 
   const handlePlaceOrder = async () => {
@@ -116,20 +266,7 @@ export function CheckoutClient() {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            customPrice: item.totalPrice,
-            selectedSize: item.selectedSize,
-            selectedColor: item.selectedColor,
-            selectedMetalVariants: item.selectedMetalVariants,
-            selectedGemstone: item.selectedGemstone,
-          })),
-          shippingAddress: shipping,
-          paymentMethod,
-          customerNotes,
-        }),
+        body: JSON.stringify(buildPayload()),
       });
 
       const data = await res.json();
@@ -139,13 +276,25 @@ export function CheckoutClient() {
         return;
       }
 
-      setOrderResult({
-        orderNumber: data.data.orderNumber,
-        totalAmount: data.data.totalAmount,
-      });
-      clearCart();
-      setStep(3);
-      toast.success("Order placed successfully!");
+      if (paymentMethod === "cod") {
+        setOrderResult({
+          orderNumber: data.data.orderNumber,
+          totalAmount: data.data.totalAmount,
+          paymentMethod: "cod",
+          paymentStatus: data.data.paymentStatus,
+        });
+        clearCart();
+        setStep(3);
+        toast.success("Order placed successfully!");
+        return;
+      }
+
+      if (!data.data.razorpay) {
+        toast.error("Payment gateway unavailable. Please try COD or contact us.");
+        return;
+      }
+
+      await openRazorpayCheckout(data.data);
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
@@ -182,12 +331,10 @@ export function CheckoutClient() {
           homeHref="/"
           items={[
             { label: "Home", href: "/" },
-            { label: "Cart", href: "#" },
             { label: "Checkout" },
           ]}
         />
 
-        {/* Steps Indicator */}
         <div className="mt-6 flex items-center justify-center gap-4">
           {[
             { num: 1, label: "Shipping", icon: Truck },
@@ -230,9 +377,7 @@ export function CheckoutClient() {
         </div>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-3">
-          {/* Main Content */}
           <div className="lg:col-span-2">
-            {/* Step 1: Shipping */}
             {step === 1 && (
               <div className="rounded-xl border border-charcoal-100 bg-white p-6 shadow-card sm:p-8">
                 <h2 className="text-xl font-semibold text-charcoal-700">
@@ -240,6 +385,18 @@ export function CheckoutClient() {
                 </h2>
                 <p className="mt-1 text-sm text-charcoal-400">
                   Where should we deliver your order?
+                  {session?.user?.accountType !== "customer" && (
+                    <>
+                      {" "}
+                      <Link
+                        href="/account/login?callbackUrl=/checkout"
+                        className="font-medium text-gold-600 hover:underline"
+                      >
+                        Sign in
+                      </Link>{" "}
+                      to autofill your details.
+                    </>
+                  )}
                 </p>
 
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -255,6 +412,7 @@ export function CheckoutClient() {
                       }
                       className="mt-1 w-full rounded-lg border border-charcoal-200 px-4 py-2.5 text-sm text-charcoal-700 placeholder:text-charcoal-300 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20"
                       placeholder="Enter your full name"
+                      autoComplete="name"
                     />
                   </div>
 
@@ -266,27 +424,36 @@ export function CheckoutClient() {
                       type="tel"
                       value={shipping.phone}
                       onChange={(e) =>
-                        setShipping({ ...shipping, phone: e.target.value })
+                        setShipping({
+                          ...shipping,
+                          phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                        })
                       }
                       className="mt-1 w-full rounded-lg border border-charcoal-200 px-4 py-2.5 text-sm text-charcoal-700 placeholder:text-charcoal-300 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20"
                       placeholder="10-digit mobile number"
                       maxLength={10}
+                      autoComplete="tel"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-charcoal-600">
-                      Email (optional)
+                      Email *
                     </label>
                     <input
                       type="email"
+                      required
                       value={shipping.email}
                       onChange={(e) =>
                         setShipping({ ...shipping, email: e.target.value })
                       }
                       className="mt-1 w-full rounded-lg border border-charcoal-200 px-4 py-2.5 text-sm text-charcoal-700 placeholder:text-charcoal-300 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20"
                       placeholder="your@email.com"
+                      autoComplete="email"
                     />
+                    <p className="mt-1 text-xs text-charcoal-400">
+                      Order receipt and updates are sent here
+                    </p>
                   </div>
 
                   <div className="sm:col-span-2">
@@ -304,6 +471,7 @@ export function CheckoutClient() {
                       }
                       className="mt-1 w-full rounded-lg border border-charcoal-200 px-4 py-2.5 text-sm text-charcoal-700 placeholder:text-charcoal-300 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20"
                       placeholder="House no, Building, Street"
+                      autoComplete="address-line1"
                     />
                   </div>
 
@@ -322,6 +490,7 @@ export function CheckoutClient() {
                       }
                       className="mt-1 w-full rounded-lg border border-charcoal-200 px-4 py-2.5 text-sm text-charcoal-700 placeholder:text-charcoal-300 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20"
                       placeholder="Area, Colony (optional)"
+                      autoComplete="address-line2"
                     />
                   </div>
 
@@ -337,6 +506,7 @@ export function CheckoutClient() {
                       }
                       className="mt-1 w-full rounded-lg border border-charcoal-200 px-4 py-2.5 text-sm text-charcoal-700 placeholder:text-charcoal-300 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20"
                       placeholder="City"
+                      autoComplete="address-level2"
                     />
                   </div>
 
@@ -368,11 +538,15 @@ export function CheckoutClient() {
                       type="text"
                       value={shipping.pincode}
                       onChange={(e) =>
-                        setShipping({ ...shipping, pincode: e.target.value })
+                        setShipping({
+                          ...shipping,
+                          pincode: e.target.value.replace(/\D/g, "").slice(0, 6),
+                        })
                       }
                       className="mt-1 w-full rounded-lg border border-charcoal-200 px-4 py-2.5 text-sm text-charcoal-700 placeholder:text-charcoal-300 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20"
                       placeholder="6-digit pincode"
                       maxLength={6}
+                      autoComplete="postal-code"
                     />
                   </div>
 
@@ -407,6 +581,7 @@ export function CheckoutClient() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => {
                     if (validateShipping()) setStep(2);
                   }}
@@ -417,10 +592,10 @@ export function CheckoutClient() {
               </div>
             )}
 
-            {/* Step 2: Payment */}
             {step === 2 && (
               <div className="rounded-xl border border-charcoal-100 bg-white p-6 shadow-card sm:p-8">
                 <button
+                  type="button"
                   onClick={() => setStep(1)}
                   className="mb-4 flex items-center gap-1 text-sm text-charcoal-500 hover:text-charcoal-700"
                 >
@@ -432,17 +607,16 @@ export function CheckoutClient() {
                   Payment Method
                 </h2>
                 <p className="mt-1 text-sm text-charcoal-400">
-                  Choose how you&apos;d like to pay. Payment will be verified
-                  manually by our team.
+                  Pay securely online with Razorpay, or choose Cash on Delivery.
                 </p>
 
                 <div className="mt-6 space-y-3">
-                  {/* UPI */}
                   <button
-                    onClick={() => setPaymentMethod("upi")}
+                    type="button"
+                    onClick={() => setPaymentMethod("razorpay")}
                     className={cn(
                       "w-full rounded-xl border-2 p-4 text-left transition-all",
-                      paymentMethod === "upi"
+                      paymentMethod === "razorpay"
                         ? "border-gold-500 bg-gold-50/50"
                         : "border-charcoal-100 hover:border-charcoal-200"
                     )}
@@ -451,58 +625,26 @@ export function CheckoutClient() {
                       <div
                         className={cn(
                           "flex h-10 w-10 items-center justify-center rounded-lg",
-                          paymentMethod === "upi"
+                          paymentMethod === "razorpay"
                             ? "bg-gold-100 text-gold-600"
                             : "bg-charcoal-100 text-charcoal-500"
                         )}
                       >
-                        <QrCode className="h-5 w-5" />
+                        <ShieldCheck className="h-5 w-5" />
                       </div>
                       <div>
                         <p className="font-semibold text-charcoal-700">
-                          UPI Payment
+                          Pay Online (Razorpay)
                         </p>
                         <p className="text-xs text-charcoal-400">
-                          Pay via Google Pay, PhonePe, Paytm, or any UPI app
+                          UPI, Cards, Netbanking, Wallets — instant confirmation
                         </p>
                       </div>
                     </div>
                   </button>
 
-                  {/* Bank Transfer */}
                   <button
-                    onClick={() => setPaymentMethod("bank_transfer")}
-                    className={cn(
-                      "w-full rounded-xl border-2 p-4 text-left transition-all",
-                      paymentMethod === "bank_transfer"
-                        ? "border-gold-500 bg-gold-50/50"
-                        : "border-charcoal-100 hover:border-charcoal-200"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-lg",
-                          paymentMethod === "bank_transfer"
-                            ? "bg-gold-100 text-gold-600"
-                            : "bg-charcoal-100 text-charcoal-500"
-                        )}
-                      >
-                        <Building2 className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-charcoal-700">
-                          Bank Transfer (NEFT/IMPS)
-                        </p>
-                        <p className="text-xs text-charcoal-400">
-                          Transfer directly to our bank account
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* COD */}
-                  <button
+                    type="button"
                     onClick={() => setPaymentMethod("cod")}
                     className={cn(
                       "w-full rounded-xl border-2 p-4 text-left transition-all",
@@ -534,86 +676,16 @@ export function CheckoutClient() {
                   </button>
                 </div>
 
-                {/* UPI Details */}
-                {paymentMethod === "upi" && (
-                  <div className="mt-6 rounded-xl bg-charcoal-50 p-5">
-                    <h3 className="text-sm font-semibold text-charcoal-700">
-                      UPI Payment Details
-                    </h3>
-                    <p className="mt-1 text-xs text-charcoal-400">
-                      After placing the order, send the payment to the UPI ID
-                      below. Our team will verify and confirm your order.
-                    </p>
-                    <div className="mt-3 flex items-center gap-4">
-                      {upiQrImage && (
-                        <div className="relative h-32 w-32 overflow-hidden rounded-lg border border-charcoal-200 bg-white">
-                          <Image
-                            src={upiQrImage}
-                            alt="UPI QR Code"
-                            fill
-                            className="object-contain p-1"
-                          />
-                        </div>
-                      )}
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-xs text-charcoal-400">UPI ID</p>
-                          <p className="font-mono text-sm font-semibold text-charcoal-700">
-                            {upiId}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-charcoal-400">Name</p>
-                          <p className="text-sm font-medium text-charcoal-700">
-                            {upiName}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-charcoal-400">Amount</p>
-                          <p className="font-mono text-sm font-semibold text-gold-700">
-                            {formatCurrency(totalAmount)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Bank Transfer Details */}
-                {paymentMethod === "bank_transfer" && (
-                  <div className="mt-6 rounded-xl bg-charcoal-50 p-5">
-                    <h3 className="text-sm font-semibold text-charcoal-700">
-                      Bank Transfer Details
-                    </h3>
-                    <p className="mt-1 text-xs text-charcoal-400">
-                      Transfer the total amount to our account. Share the
-                      transaction reference after placing the order.
-                    </p>
-                    <div className="mt-3 space-y-2 text-sm">
-                      <p className="text-charcoal-400">
-                        Amount:{" "}
-                        <span className="font-mono font-semibold text-gold-700">
-                          {formatCurrency(totalAmount)}
-                        </span>
-                      </p>
-                      <p className="text-charcoal-400">
-                        Bank details will be shared via WhatsApp after you place
-                        the order.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Info */}
                 <div className="mt-4 flex gap-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-700">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <p>
-                    Your order will be confirmed once we verify the payment. For
-                    COD orders, we may contact you on WhatsApp for confirmation.
+                    Prices are recalculated securely on our servers at checkout.
+                    For COD, we may contact you on WhatsApp to confirm.
                   </p>
                 </div>
 
                 <button
+                  type="button"
                   onClick={handlePlaceOrder}
                   disabled={isSubmitting}
                   className={cn(
@@ -621,23 +693,32 @@ export function CheckoutClient() {
                     isSubmitting && "cursor-not-allowed opacity-60"
                   )}
                 >
-                  {isSubmitting ? "Placing Order..." : "Place Order"}
+                  {isSubmitting
+                    ? paymentMethod === "razorpay"
+                      ? "Opening payment..."
+                      : "Placing Order..."
+                    : paymentMethod === "razorpay"
+                      ? `Pay ${formatCurrency(totalAmount)}`
+                      : "Place COD Order"}
                 </button>
               </div>
             )}
 
-            {/* Step 3: Confirmation */}
             {step === 3 && orderResult && (
               <div className="rounded-xl border border-charcoal-100 bg-white p-6 text-center shadow-card sm:p-10">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
                   <CheckCircle2 className="h-8 w-8 text-green-600" />
                 </div>
                 <h2 className="mt-4 text-2xl font-bold text-charcoal-700">
-                  Order Placed Successfully!
+                  {orderResult.paymentMethod === "razorpay" &&
+                  orderResult.paymentStatus === "verified"
+                    ? "Payment Successful!"
+                    : "Order Placed Successfully!"}
                 </h2>
                 <p className="mt-2 text-charcoal-400">
-                  Thank you for your order. We&apos;ll confirm it once the
-                  payment is verified.
+                  {orderResult.paymentMethod === "cod"
+                    ? "We'll confirm your COD order shortly."
+                    : "Thank you for your purchase. Your order is confirmed."}
                 </p>
 
                 <div className="mx-auto mt-6 max-w-sm rounded-xl bg-charcoal-50 p-5">
@@ -656,37 +737,18 @@ export function CheckoutClient() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-charcoal-400">Payment</span>
-                      <span className="font-medium capitalize text-charcoal-700">
-                        {paymentMethod === "cod"
+                      <span className="font-medium text-charcoal-700">
+                        {orderResult.paymentMethod === "cod"
                           ? "Cash on Delivery"
-                          : paymentMethod === "bank_transfer"
-                            ? "Bank Transfer"
-                            : "UPI"}
+                          : "Razorpay (Paid)"}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {paymentMethod === "upi" && (
-                  <div className="mx-auto mt-4 max-w-sm rounded-xl bg-gold-50 p-4">
-                    <p className="text-sm font-medium text-gold-800">
-                      Please send{" "}
-                      <span className="font-mono font-bold">
-                        {formatCurrency(orderResult.totalAmount)}
-                      </span>{" "}
-                      to UPI ID:{" "}
-                      <span className="font-mono font-bold">{upiId}</span>
-                    </p>
-                    <p className="mt-1 text-xs text-gold-600">
-                      Mention your order number {orderResult.orderNumber} in the
-                      payment remarks.
-                    </p>
-                  </div>
-                )}
-
                 <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                   <Link
-                    href={`/track-order?orderNumber=${orderResult.orderNumber}`}
+                    href={`/track-order?orderNumber=${orderResult.orderNumber}&phone=${shipping.phone}`}
                     className="inline-flex items-center gap-2 rounded-lg bg-gold-500 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gold-600"
                   >
                     Track Your Order
@@ -713,7 +775,6 @@ export function CheckoutClient() {
             )}
           </div>
 
-          {/* Order Summary Sidebar */}
           {step !== 3 && (
             <div className="lg:col-span-1">
               <div className="sticky top-24 rounded-xl border border-charcoal-100 bg-white p-6 shadow-card">
@@ -723,7 +784,7 @@ export function CheckoutClient() {
 
                 <ul className="mt-4 divide-y divide-charcoal-100">
                   {items.map((item) => (
-                    <li key={item.productId} className="flex gap-3 py-3">
+                    <li key={item.cartItemId} className="flex gap-3 py-3">
                       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-charcoal-50">
                         <Image
                           src={item.thumbnailImage}

@@ -14,7 +14,7 @@ import { ProductCard } from "@/components/website/ProductCard";
 import { TrackProductView } from "@/components/website/TrackProductView";
 import { RecentlyViewed } from "@/components/website/RecentlyViewed";
 import { JsonLd } from "@/components/shared/JsonLd";
-import { formatCurrency, capitalize } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { productJsonLd, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
 
 // ISR: serve cached pages instantly, revalidate in the background every 30s.
@@ -235,7 +235,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const category = product.category as { name: string; slug: string } | null;
 
   return (
-    <div className="py-8 md:py-12">
+    <div className="py-8 md:py-12 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
       <JsonLd
         data={productJsonLd({
           name: product.name,
@@ -359,6 +359,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               colors: product.colors || [],
               size: product.size,
               chargeBasedOnVariant: product.chargeBasedOnVariant || undefined,
+              barSpecs: product.barSpecs || null,
             }}
             availableMetals={availableMetals}
             variantWeightMap={variantWeightMap || {}}
@@ -368,26 +369,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
           />
         </div>
 
-        {/* Details Grid */}
-        <div className="mt-8 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-4">
-          {product.gender && (
-            <div className="rounded-lg bg-charcoal-50 p-3">
-              <p className="text-xs text-charcoal-400">Gender</p>
-              <p className="mt-0.5 font-medium text-charcoal-700">
-                {capitalize(product.gender)}
-              </p>
-            </div>
-          )}
-          {/* Gross/Net weight shown dynamically in ProductDetailClient */}
-          {product.size && (
+        {/* Size detail (gender is not shown on the product page) */}
+        {product.size && (
+          <div className="mt-8 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-4">
             <div className="rounded-lg bg-charcoal-50 p-3">
               <p className="text-xs text-charcoal-400">Size</p>
               <p className="mt-0.5 font-medium text-charcoal-700">
                 {product.size}
               </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Description */}
         {product.description && (

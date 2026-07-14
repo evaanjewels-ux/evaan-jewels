@@ -84,7 +84,14 @@ export async function PUT(
       Object.assign(validatedData, prices, { lastPriceSync: new Date() });
     }
 
-    const product = await Product.findByIdAndUpdate(id, validatedData, {
+    // null barSpecs → unset field (jewelry products shouldn't keep old bar data)
+    const updatePayload: Record<string, unknown> = { ...validatedData };
+    if (validatedData.barSpecs === null) {
+      delete updatePayload.barSpecs;
+      updatePayload.$unset = { barSpecs: 1 };
+    }
+
+    const product = await Product.findByIdAndUpdate(id, updatePayload, {
       new: true,
       runValidators: true,
     })

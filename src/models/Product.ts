@@ -132,6 +132,30 @@ const ProductVideoSchema = new Schema(
   { _id: false }
 );
 
+const BarWeightOptionSchema = new Schema(
+  {
+    weightGrams: { type: Number, required: true, min: [0.001, "Weight must be positive"] },
+    sku: { type: String, default: "" },
+    dimension: { type: String, default: "" },
+    netWeight: { type: Number, min: 0 },
+    isDefault: { type: Boolean, default: false },
+    isOutOfStock: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const BarSpecsSchema = new Schema(
+  {
+    shape: { type: String, default: "Rectangular Ingot" },
+    purity: { type: Number, default: 999.9 },
+    countryOfOrigin: { type: String, default: "India" },
+    importer: { type: String, default: "NA" },
+    mintBrand: { type: String, default: "" },
+    weightOptions: { type: [BarWeightOptionSchema], default: [] },
+  },
+  { _id: false }
+);
+
 const ProductSchema = new Schema<IProduct>(
   {
     name: {
@@ -167,6 +191,9 @@ const ProductSchema = new Schema<IProduct>(
     // Composition
     metalComposition: [MetalCompositionSchema],
     gemstoneComposition: [GemstoneCompositionSchema],
+
+    // Bullion / bar-specific specs (weight chips, dimensions, origin, etc.)
+    barSpecs: { type: BarSpecsSchema, required: false },
 
     // Charges
     makingCharges: { type: ChargesSchema, default: { type: "fixed", value: 0 } },
