@@ -53,6 +53,30 @@ interface OrderResult {
   paymentMethod: PaymentMethod;
   paymentStatus: string;
   proofUploaded?: boolean;
+  phone: string;
+  email?: string;
+}
+
+const CONFIRMATION_KEY = "evaan-checkout-confirmation";
+
+function saveConfirmation(result: OrderResult) {
+  try {
+    sessionStorage.setItem(CONFIRMATION_KEY, JSON.stringify(result));
+  } catch {
+    // ignore
+  }
+}
+
+function loadConfirmation(): OrderResult | null {
+  try {
+    const raw = sessionStorage.getItem(CONFIRMATION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as OrderResult;
+    if (!parsed?.orderNumber) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 declare global {
@@ -97,6 +121,20 @@ export function CheckoutClient() {
     landmark: "",
   });
 
+  // Restore confirmation after refresh / remount (guest + logged-in)
+  useEffect(() => {
+    const saved = loadConfirmation();
+    if (!saved) return;
+    setOrderResult(saved);
+    setStep(3);
+    setShipping((s) => ({
+      ...s,
+      phone: s.phone || saved.phone || "",
+      email: s.email || saved.email || "",
+    }));
+    clearCart();
+  }, [clearCart]);
+
   // Always land at the top of checkout (mobile + desktop). Re-run when cart
   // hydrates so content expansion doesn't leave the user at the footer.
   useEffect(() => {
@@ -130,6 +168,21 @@ export function CheckoutClient() {
       })
       .catch(() => {});
   }, [session]);
+
+  /** Always land on step 3 confirmation for both payment methods / auth states */
+  const completeCheckout = useCallback(
+    (result: OrderResult, successMessage: string) => {
+      saveConfirmation(result);
+      setOrderResult(result);
+      setStep(3);
+      clearCart();
+      toast.success(successMessage);
+      requestAnimationFrame(() => {
+        window.scrollTo(0, 0);
+      });
+    },
+    [clearCart]
+  );
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("razorpay");
   const [customerNotes, setCustomerNotes] = useState("");
@@ -314,22 +367,51 @@ export function CheckoutClient() {
               }),
             });
             const verifyData = await verifyRes.json();
-            if (!verifyData.success) {
-              toast.error(verifyData.error || "Payment verification failed");
-              resolve();
-              return;
+            if (verifyData.success) {
+              completeCheckout(
+                {
+                  orderNumber: verifyData.data.orderNumber,
+                  totalAmount: verifyData.data.totalAmount,
+                  paymentMethod: "razorpay",
+                  paymentStatus: verifyData.data.paymentStatus || "verified",
+                  phone: shipping.phone,
+                  email: shipping.email,
+                },
+                "Payment successful!"
+              );
+            } else {
+              // Payment went through on Razorpay — still show confirmation
+              completeCheckout(
+                {
+                  orderNumber: data.orderNumber,
+                  totalAmount: data.totalAmount,
+                  paymentMethod: "razorpay",
+                  paymentStatus: "pending",
+                  phone: shipping.phone,
+                  email: shipping.email,
+                },
+                "Payment received — confirmation is processing"
+              );
+              toast.info(
+                verifyData.error ||
+                  "If your order is not confirmed soon, contact support with your order number."
+              );
             }
-            setOrderResult({
-              orderNumber: verifyData.data.orderNumber,
-              totalAmount: verifyData.data.totalAmount,
-              paymentMethod: "razorpay",
-              paymentStatus: verifyData.data.paymentStatus,
-            });
-            clearCart();
-            setStep(3);
-            toast.success("Payment successful!");
           } catch {
-            toast.error("Payment received but verification failed. Contact support with your order number.");
+            completeCheckout(
+              {
+                orderNumber: data.orderNumber,
+                totalAmount: data.totalAmount,
+                paymentMethod: "razorpay",
+                paymentStatus: "pending",
+                phone: shipping.phone,
+                email: shipping.email,
+              },
+              "Payment received — we will confirm your order shortly"
+            );
+            toast.info(
+              `Keep order ${data.orderNumber} handy and contact support if needed.`
+            );
           } finally {
             resolve();
           }
@@ -381,16 +463,16 @@ export function CheckoutClient() {
             shipping.phone
           );
         }
-        setOrderResult({
-          orderNumber: data.data.orderNumber,
-          totalAmount: data.data.totalAmount,
-          paymentMethod: "bank_transfer",
-          paymentStatus: proofUploaded ? "received" : data.data.paymentStatus,
-          proofUploaded,
-        });
-        clearCart();
-        setStep(3);
-        toast.success(
+        completeCheckout(
+          {
+            orderNumber: data.data.orderNumber,
+            totalAmount: data.data.totalAmount,
+            paymentMethod: "bank_transfer",
+            paymentStatus: proofUploaded ? "received" : data.data.paymentStatus,
+            proofUploaded,
+            phone: shipping.phone,
+            email: shipping.email,
+          },
           proofUploaded
             ? "Order placed — proof uploaded for verification"
             : "Order placed — transfer the amount using the details below"
@@ -440,6 +522,19 @@ export function CheckoutClient() {
       </div>
     );
   }
+
+  const trackPhone = orderResult?.phone || shipping.phone;
+  const isCustomer = session?.user?.accountType === "customer";
+  const paymentLabel = (() => {
+    if (!orderResult) return "";
+    if (orderResult.paymentMethod === "bank_transfer") {
+      return orderResult.proofUploaded
+        ? "Bank Transfer (Proof received)"
+        : "Bank Transfer (Awaiting verification)";
+    }
+    if (orderResult.paymentStatus === "verified") return "Razorpay (Paid)";
+    return "Razorpay (Confirming…)";
+  })();
 
   return (
     <div className="py-8 md:py-12 [overflow-anchor:none]">
@@ -956,32 +1051,30 @@ export function CheckoutClient() {
                   {orderResult.paymentMethod === "bank_transfer"
                     ? orderResult.proofUploaded
                       ? "Thank you. We will verify your transfer and confirm the order shortly."
-                      : "Thank you. Complete the bank transfer using the details below, then upload your screenshot from Track Order or WhatsApp."
-                    : "Thank you for your purchase. Your order is confirmed."}
+                      : "Thank you. Complete the bank transfer using the details below, then share your screenshot on WhatsApp if needed."
+                    : orderResult.paymentStatus === "verified"
+                      ? "Thank you for your purchase. Your order is confirmed."
+                      : "Thank you. Your payment was received and your order will be confirmed shortly."}
                 </p>
 
                 <div className="mx-auto mt-6 max-w-sm rounded-xl bg-charcoal-50 p-5">
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-3">
                       <span className="text-charcoal-400">Order Number</span>
                       <span className="font-mono font-semibold text-charcoal-700">
                         {orderResult.orderNumber}
                       </span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-3">
                       <span className="text-charcoal-400">Total Amount</span>
                       <span className="font-mono font-semibold text-gold-700">
                         {formatCurrency(orderResult.totalAmount)}
                       </span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-3">
                       <span className="text-charcoal-400">Payment</span>
-                      <span className="font-medium text-charcoal-700">
-                        {orderResult.paymentMethod === "bank_transfer"
-                          ? orderResult.proofUploaded
-                            ? "Bank Transfer (Proof received)"
-                            : "Bank Transfer (Awaiting)"
-                          : "Razorpay (Paid)"}
+                      <span className="font-medium text-charcoal-700 text-right">
+                        {paymentLabel}
                       </span>
                     </div>
                   </div>
@@ -1005,18 +1098,33 @@ export function CheckoutClient() {
 
                 <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                   <Link
-                    href={`/track-order?orderNumber=${orderResult.orderNumber}&phone=${shipping.phone}`}
+                    href={`/track-order?orderNumber=${encodeURIComponent(orderResult.orderNumber)}&phone=${encodeURIComponent(trackPhone)}`}
                     className="inline-flex items-center gap-2 rounded-lg bg-gold-500 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gold-600"
                   >
                     Track Your Order
                   </Link>
-                  <Link
-                    href="/"
-                    className="inline-flex items-center gap-2 rounded-lg border border-charcoal-200 px-6 py-2.5 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
-                  >
-                    Continue Shopping
-                  </Link>
+                  {isCustomer ? (
+                    <Link
+                      href="/account"
+                      className="inline-flex items-center gap-2 rounded-lg border border-charcoal-200 px-6 py-2.5 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
+                    >
+                      My Orders
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/"
+                      className="inline-flex items-center gap-2 rounded-lg border border-charcoal-200 px-6 py-2.5 text-sm font-medium text-charcoal-600 transition-colors hover:bg-charcoal-50"
+                    >
+                      Continue Shopping
+                    </Link>
+                  )}
                 </div>
+
+                {!isCustomer && (
+                  <p className="mt-4 text-xs text-charcoal-400">
+                    Save your order number to track anytime — no account needed.
+                  </p>
+                )}
 
                 <p className="mt-6 text-xs text-charcoal-400">
                   For queries, contact us on WhatsApp:{" "}
