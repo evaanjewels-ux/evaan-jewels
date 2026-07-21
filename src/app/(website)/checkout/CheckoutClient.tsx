@@ -13,11 +13,16 @@ import {
   ArrowLeft,
   ShieldCheck,
   AlertCircle,
+  Building2,
+  Copy,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/components/providers/CartProvider";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
+import { BANK_DETAILS } from "@/lib/bank-details";
 
 const INDIAN_STATES = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -28,7 +33,7 @@ const INDIAN_STATES = [
   "Uttarakhand", "West Bengal",
 ];
 
-type PaymentMethod = "razorpay";
+type PaymentMethod = "razorpay" | "bank_transfer";
 
 interface ShippingForm {
   fullName: string;
@@ -47,6 +52,7 @@ interface OrderResult {
   totalAmount: number;
   paymentMethod: PaymentMethod;
   paymentStatus: string;
+  proofUploaded?: boolean;
 }
 
 declare global {
@@ -125,11 +131,79 @@ export function CheckoutClient() {
       .catch(() => {});
   }, [session]);
 
-  const paymentMethod: PaymentMethod = "razorpay";
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("razorpay");
   const [customerNotes, setCustomerNotes] = useState("");
+  const [transactionId, setTransactionId] = useState("");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
 
   const shippingCharge = subtotal >= 50000 ? 0 : 500;
   const totalAmount = subtotal + shippingCharge;
+
+  const copyText = async (label: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copied`);
+    } catch {
+      toast.error("Could not copy");
+    }
+  };
+
+  const onProofSelect = (file: File | null) => {
+    if (proofPreview) URL.revokeObjectURL(proofPreview);
+    if (!file) {
+      setProofFile(null);
+      setProofPreview(null);
+      return;
+    }
+    if (!["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type)) {
+      toast.error("Upload a JPEG, PNG, or WebP screenshot");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Screenshot must be under 5MB");
+      return;
+    }
+    setProofFile(file);
+    setProofPreview(URL.createObjectURL(file));
+  };
+
+  const uploadPaymentProof = async (
+    orderNumber: string,
+    phone: string
+  ): Promise<boolean> => {
+    if (!proofFile) return false;
+    setIsUploadingProof(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", proofFile);
+      formData.append("orderNumber", orderNumber);
+      formData.append("phone", phone);
+      if (transactionId.trim()) {
+        formData.append("transactionId", transactionId.trim());
+      }
+      if (paymentNotes.trim()) {
+        formData.append("paymentNotes", paymentNotes.trim());
+      }
+      const res = await fetch("/api/orders/payment-proof", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast.error(data.error || "Failed to upload payment proof");
+        return false;
+      }
+      return true;
+    } catch {
+      toast.error("Failed to upload payment proof");
+      return false;
+    } finally {
+      setIsUploadingProof(false);
+    }
+  };
 
   const validateShipping = (): boolean => {
     if (!shipping.fullName.trim()) {
@@ -176,8 +250,19 @@ export function CheckoutClient() {
       shippingAddress: shipping,
       paymentMethod,
       customerNotes,
+      transactionId:
+        paymentMethod === "bank_transfer" ? transactionId.trim() : "",
+      paymentNotes:
+        paymentMethod === "bank_transfer" ? paymentNotes.trim() : "",
     }),
-    [items, shipping, paymentMethod, customerNotes]
+    [
+      items,
+      shipping,
+      paymentMethod,
+      customerNotes,
+      transactionId,
+      paymentNotes,
+    ]
   );
 
   const openRazorpayCheckout = async (data: {
@@ -285,6 +370,31 @@ export function CheckoutClient() {
 
       if (!data.success) {
         toast.error(data.error || "Failed to place order");
+        return;
+      }
+
+      if (paymentMethod === "bank_transfer") {
+        let proofUploaded = false;
+        if (proofFile) {
+          proofUploaded = await uploadPaymentProof(
+            data.data.orderNumber,
+            shipping.phone
+          );
+        }
+        setOrderResult({
+          orderNumber: data.data.orderNumber,
+          totalAmount: data.data.totalAmount,
+          paymentMethod: "bank_transfer",
+          paymentStatus: proofUploaded ? "received" : data.data.paymentStatus,
+          proofUploaded,
+        });
+        clearCart();
+        setStep(3);
+        toast.success(
+          proofUploaded
+            ? "Order placed — proof uploaded for verification"
+            : "Order placed — transfer the amount using the details below"
+        );
         return;
       }
 
@@ -614,11 +724,20 @@ export function CheckoutClient() {
                   Payment
                 </h2>
                 <p className="mt-1 text-sm text-charcoal-400">
-                  Pay securely online with Razorpay.
+                  Choose how you would like to pay.
                 </p>
 
-                <div className="mt-6">
-                  <div className="w-full rounded-xl border-2 border-gold-500 bg-gold-50/50 p-4">
+                <div className="mt-6 space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("razorpay")}
+                    className={cn(
+                      "w-full rounded-xl border-2 p-4 text-left transition-colors",
+                      paymentMethod === "razorpay"
+                        ? "border-gold-500 bg-gold-50/50"
+                        : "border-charcoal-100 hover:border-charcoal-200"
+                    )}
+                  >
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gold-100 text-gold-600">
                         <ShieldCheck className="h-5 w-5" />
@@ -632,28 +751,192 @@ export function CheckoutClient() {
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("bank_transfer")}
+                    className={cn(
+                      "w-full rounded-xl border-2 p-4 text-left transition-colors",
+                      paymentMethod === "bank_transfer"
+                        ? "border-gold-500 bg-gold-50/50"
+                        : "border-charcoal-100 hover:border-charcoal-200"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-charcoal-100 text-charcoal-600">
+                        <Building2 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-charcoal-700">
+                          Bank Transfer (NEFT / IMPS / RTGS)
+                        </p>
+                        <p className="text-xs text-charcoal-400">
+                          Transfer to our account, then upload screenshot
+                        </p>
+                      </div>
+                    </div>
+                  </button>
                 </div>
+
+                {paymentMethod === "bank_transfer" && (
+                  <div className="mt-5 space-y-4">
+                    <div className="rounded-xl border border-charcoal-100 bg-charcoal-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-400">
+                        Transfer to
+                      </p>
+                      <dl className="mt-3 space-y-2 text-sm">
+                        {(
+                          [
+                            ["Account Holder", BANK_DETAILS.accountHolder],
+                            ["Account Number", BANK_DETAILS.accountNumber],
+                            ["IFSC", BANK_DETAILS.ifsc],
+                            ["Bank", BANK_DETAILS.bankName],
+                            ["Branch", BANK_DETAILS.branch],
+                            ["Account Type", BANK_DETAILS.accountType],
+                            ["Amount", formatCurrency(totalAmount)],
+                          ] as const
+                        ).map(([label, value]) => (
+                          <div
+                            key={label}
+                            className="flex items-start justify-between gap-3"
+                          >
+                            <div>
+                              <dt className="text-xs text-charcoal-400">
+                                {label}
+                              </dt>
+                              <dd className="font-medium text-charcoal-700 font-mono text-[13px]">
+                                {value}
+                              </dd>
+                            </div>
+                            {label !== "Amount" && (
+                              <button
+                                type="button"
+                                onClick={() => copyText(label, value)}
+                                className="mt-1 rounded p-1 text-charcoal-400 hover:bg-white hover:text-charcoal-700"
+                                aria-label={`Copy ${label}`}
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </dl>
+                      <p className="mt-3 text-xs text-charcoal-400">
+                        Use your order number as the transfer remark when
+                        possible. Order is confirmed after we verify payment.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal-600">
+                        UTR / Transaction ID (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={transactionId}
+                        onChange={(e) =>
+                          setTransactionId(e.target.value.slice(0, 100))
+                        }
+                        className="mt-1 w-full rounded-lg border border-charcoal-200 px-4 py-2.5 text-sm text-charcoal-700 placeholder:text-charcoal-300 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20"
+                        placeholder="Bank UTR or reference number"
+                        maxLength={100}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal-600">
+                        Payment Notes (optional)
+                      </label>
+                      <textarea
+                        value={paymentNotes}
+                        onChange={(e) =>
+                          setPaymentNotes(e.target.value.slice(0, 500))
+                        }
+                        rows={2}
+                        className="mt-1 w-full rounded-lg border border-charcoal-200 px-4 py-2.5 text-sm text-charcoal-700 placeholder:text-charcoal-300 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/20"
+                        placeholder="Anything we should know about this transfer..."
+                        maxLength={500}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal-600">
+                        Payment Screenshot (recommended)
+                      </label>
+                      <p className="mt-0.5 text-xs text-charcoal-400">
+                        JPEG/PNG/WebP, max 5MB. You can also upload after placing
+                        the order.
+                      </p>
+                      {proofPreview ? (
+                        <div className="relative mt-2 inline-block">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={proofPreview}
+                            alt="Payment proof preview"
+                            className="h-32 w-auto rounded-lg border border-charcoal-100 object-contain"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => onProofSelect(null)}
+                            className="absolute -right-2 -top-2 rounded-full bg-charcoal-700 px-2 py-0.5 text-xs text-white"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-charcoal-200 px-4 py-6 text-center hover:border-gold-400">
+                          <Upload className="h-6 w-6 text-charcoal-300" />
+                          <span className="mt-2 text-sm text-charcoal-500">
+                            Tap to upload screenshot
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/avif"
+                            className="hidden"
+                            onChange={(e) =>
+                              onProofSelect(e.target.files?.[0] || null)
+                            }
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-4 flex gap-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-700">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <p>
                     Prices are recalculated securely on our servers at checkout.
+                    {paymentMethod === "bank_transfer" &&
+                      " Bank transfers are verified manually before confirmation."}
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={handlePlaceOrder}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isUploadingProof}
                   className={cn(
                     "mt-6 w-full rounded-lg bg-gold-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-gold-600",
-                    isSubmitting && "cursor-not-allowed opacity-60"
+                    (isSubmitting || isUploadingProof) &&
+                      "cursor-not-allowed opacity-60"
                   )}
                 >
-                  {isSubmitting
-                    ? "Opening payment..."
-                    : `Pay ${formatCurrency(totalAmount)}`}
+                  {isSubmitting || isUploadingProof ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {isUploadingProof
+                        ? "Uploading proof..."
+                        : paymentMethod === "bank_transfer"
+                          ? "Placing order..."
+                          : "Opening payment..."}
+                    </span>
+                  ) : paymentMethod === "bank_transfer" ? (
+                    `Place Order · ${formatCurrency(totalAmount)}`
+                  ) : (
+                    `Pay ${formatCurrency(totalAmount)}`
+                  )}
                 </button>
               </div>
             )}
@@ -670,7 +953,11 @@ export function CheckoutClient() {
                     : "Order Placed Successfully!"}
                 </h2>
                 <p className="mt-2 text-charcoal-400">
-                  Thank you for your purchase. Your order is confirmed.
+                  {orderResult.paymentMethod === "bank_transfer"
+                    ? orderResult.proofUploaded
+                      ? "Thank you. We will verify your transfer and confirm the order shortly."
+                      : "Thank you. Complete the bank transfer using the details below, then upload your screenshot from Track Order or WhatsApp."
+                    : "Thank you for your purchase. Your order is confirmed."}
                 </p>
 
                 <div className="mx-auto mt-6 max-w-sm rounded-xl bg-charcoal-50 p-5">
@@ -690,11 +977,31 @@ export function CheckoutClient() {
                     <div className="flex justify-between">
                       <span className="text-charcoal-400">Payment</span>
                       <span className="font-medium text-charcoal-700">
-                        Razorpay (Paid)
+                        {orderResult.paymentMethod === "bank_transfer"
+                          ? orderResult.proofUploaded
+                            ? "Bank Transfer (Proof received)"
+                            : "Bank Transfer (Awaiting)"
+                          : "Razorpay (Paid)"}
                       </span>
                     </div>
                   </div>
                 </div>
+
+                {orderResult.paymentMethod === "bank_transfer" && (
+                  <div className="mx-auto mt-4 max-w-sm rounded-xl border border-charcoal-100 p-4 text-left text-sm">
+                    <p className="font-semibold text-charcoal-700">
+                      Bank details
+                    </p>
+                    <ul className="mt-2 space-y-1 text-charcoal-500 font-mono text-xs">
+                      <li>{BANK_DETAILS.accountHolder}</li>
+                      <li>A/C {BANK_DETAILS.accountNumber}</li>
+                      <li>IFSC {BANK_DETAILS.ifsc}</li>
+                      <li>
+                        {BANK_DETAILS.bankName} · {BANK_DETAILS.branch}
+                      </li>
+                    </ul>
+                  </div>
+                )}
 
                 <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                   <Link

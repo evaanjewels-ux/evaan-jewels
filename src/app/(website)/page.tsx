@@ -54,9 +54,9 @@ export const metadata = createMetadata({
 
 function SectionSkeleton() {
   return (
-    <div className="py-12 md:py-16">
+    <div className="py-8 md:py-10">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 space-y-3">
+        <div className="mb-6 space-y-3">
           <div className="h-8 w-48 animate-pulse rounded bg-charcoal-100" />
           <div className="h-4 w-72 animate-pulse rounded bg-charcoal-100" />
         </div>
@@ -231,13 +231,13 @@ export default async function HomePage() {
       </Suspense>
 
       {/* About Section */}
-      <section className="py-12 md:py-16 lg:py-20">
+      <section className="py-8 md:py-10 lg:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="font-heading text-2xl font-bold text-charcoal-700 sm:text-3xl">
               About Evaan Jewels
             </h2>
-            <p className="mt-4 text-charcoal-400 leading-relaxed">
+            <p className="mt-3 text-charcoal-400 leading-relaxed">
               For over two decades, Evaan Jewels has been crafting exquisite
               jewelry that celebrates life&apos;s most precious moments. Every piece in
               our collection is BIS Hallmark certified, ensuring the highest standards

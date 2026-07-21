@@ -28,8 +28,8 @@ export function RecentlyViewed({ excludeProductId }: RecentlyViewedProps) {
   if (filtered.length === 0) return null;
 
   return (
-    <section className="mt-16 border-t border-charcoal-100 pt-12">
-      <h2 className="mb-6 font-heading text-2xl font-bold text-charcoal-700">
+    <section className="mt-12 border-t border-charcoal-100 pt-8">
+      <h2 className="mb-5 font-heading text-2xl font-bold text-charcoal-700">
         Recently Viewed
       </h2>
       <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-charcoal-200">

@@ -89,25 +89,25 @@ export function CategoryGrid({ categories }: CategoryGridProps) {
   };
 
   return (
-    <section className="py-12 md:py-16 lg:py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section className="py-8 md:py-10 lg:py-12">
+      <div className="mx-auto max-w-[84rem] px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="mb-10 text-center md:mb-12">
+        <div className="mb-6 text-center md:mb-8">
           <h2 className="font-heading text-2xl font-bold text-charcoal-700 sm:text-3xl">
             {t("section.categories")}
           </h2>
-          <p className="mx-auto mt-3 max-w-lg text-charcoal-400">
+          <p className="mx-auto mt-2 max-w-lg text-charcoal-400">
             {t("section.categoriesSubtitle")}
           </p>
         </div>
 
-        {/* Grid */}
+        {/* Grid — 4 columns on desktop, wide container uses more horizontal space */}
         <motion.div
           variants={staggerContainer}
           initial="initial"
           whileInView="animate"
           viewport={{ once: true, margin: "-50px" }}
-          className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4"
+          className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-5"
         >
           {categories.map((category, index) => (
             <motion.div key={category._id} variants={staggerItem}>
@@ -121,7 +121,7 @@ export function CategoryGrid({ categories }: CategoryGridProps) {
                     src={category.image}
                     alt={`${category.name} — Jewelry Collection | Evaan Jewels`}
                     fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                     priority={index < 4}
                   />
@@ -130,8 +130,8 @@ export function CategoryGrid({ categories }: CategoryGridProps) {
                 </div>
 
                 {/* Content */}
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <h3 className="text-base font-semibold text-white sm:text-lg">
+                <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+                  <h3 className="text-sm font-semibold text-white sm:text-base lg:text-lg">
                     {getCategoryDisplayName(category.name)}
                   </h3>
                   {category.productCount !== undefined && (
@@ -139,7 +139,7 @@ export function CategoryGrid({ categories }: CategoryGridProps) {
                       {category.productCount} {category.productCount === 1 ? (language === "hi" ? "उत्पाद" : "Product") : (language === "hi" ? "उत्पाद" : "Products")}
                     </p>
                   )}
-                  <div className="mt-2 flex items-center gap-1 text-xs font-medium text-gold-400 transition-colors group-hover:text-gold-300">
+                  <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-gold-400 transition-colors group-hover:text-gold-300">
                     {language === "hi" ? "देखें" : "Explore"}
                     <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" />
                   </div>
@@ -150,7 +150,7 @@ export function CategoryGrid({ categories }: CategoryGridProps) {
         </motion.div>
 
         {/* View All */}
-        <div className="mt-10 text-center">
+        <div className="mt-6 text-center md:mt-8">
           <Link
             href="/categories"
             className="inline-flex items-center gap-2 text-sm font-medium text-gold-600 transition-colors hover:text-gold-700"

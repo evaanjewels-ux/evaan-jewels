@@ -1,13 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2, generateFileKey, deleteFromR2, getKeyFromUrl } from "@/lib/cloudflare-r2";
+import { auth } from "@/lib/auth";
 
 // Vercel free tier has a 4.5 MB body limit — keep video uploads under 4 MB
 const MAX_VIDEO_SIZE = 4 * 1024 * 1024; // 4MB
 const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm"];
 
+async function requireAdmin() {
+  const session = await auth();
+  if (!session?.user?.id || session.user.accountType === "customer") {
+    return null;
+  }
+  return session;
+}
+
 // POST /api/upload/video — Upload a short product video to Cloudflare R2
 export async function POST(request: NextRequest) {
   try {
+    if (!(await requireAdmin())) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const folder = (formData.get("folder") as string) || "videos";
@@ -58,6 +74,13 @@ export async function POST(request: NextRequest) {
 // DELETE /api/upload/video — Delete a video from Cloudflare R2
 export async function DELETE(request: NextRequest) {
   try {
+    if (!(await requireAdmin())) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { url } = await request.json();
 
     if (!url) {

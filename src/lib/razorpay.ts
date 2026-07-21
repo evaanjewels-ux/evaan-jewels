@@ -56,6 +56,7 @@ export function verifyWebhookSignature(
   rawBody: string,
   signature: string
 ): boolean {
+  if (!signature) return false;
   const expected = crypto
     .createHmac("sha256", requireEnv("RAZORPAY_WEBHOOK_SECRET"))
     .update(rawBody)
@@ -76,4 +77,47 @@ export async function createRazorpayOrder(params: {
     notes: params.notes,
     payment_capture: true,
   });
+}
+
+/**
+ * Defense-in-depth after HMAC: confirm payment with Razorpay API
+ * (status + amount + order binding).
+ */
+export async function assertPaymentMatchesOrder(params: {
+  paymentId: string;
+  razorpayOrderId: string;
+  expectedAmountInr: number;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const razorpay = getRazorpayClient();
+  const payment = await razorpay.payments.fetch(params.paymentId);
+
+  if (payment.order_id !== params.razorpayOrderId) {
+    return { ok: false, error: "Payment does not belong to this order" };
+  }
+
+  if (payment.currency !== "INR") {
+    return { ok: false, error: "Unexpected payment currency" };
+  }
+
+  // Auto-capture is enabled; accept captured (or authorized briefly).
+  if (payment.status !== "captured" && payment.status !== "authorized") {
+    return {
+      ok: false,
+      error: `Payment not successful (${payment.status})`,
+    };
+  }
+
+  if (Number(payment.amount) !== toPaise(params.expectedAmountInr)) {
+    return { ok: false, error: "Payment amount mismatch" };
+  }
+
+  return { ok: true };
+}
+
+/** Compare webhook payment amount (paise) to our order total (INR). */
+export function paymentAmountMatchesOrder(
+  amountPaise: number,
+  expectedAmountInr: number
+): boolean {
+  return Number(amountPaise) === toPaise(expectedAmountInr);
 }

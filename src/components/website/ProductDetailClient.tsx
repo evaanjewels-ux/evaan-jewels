@@ -12,6 +12,30 @@ import { formatCurrency } from "@/lib/utils";
 import type { IMetalComposition, IGemstoneComposition, ICartItem } from "@/types";
 import { calculateProductPrice } from "@/lib/pricing";
 
+function parseDescriptionGroups(text: string) {
+  const lines = text.split("\n");
+  const groups: { type: "text" | "bullet" | "numbered"; lines: string[] }[] = [];
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (/^(->|[-•*])\s*/.test(trimmed) && trimmed.replace(/^(->|[-•*])\s*/, "").length > 0) {
+      const content = trimmed.replace(/^(->|[-•*])\s*/, "");
+      const last = groups[groups.length - 1];
+      if (last?.type === "bullet") last.lines.push(content);
+      else groups.push({ type: "bullet", lines: [content] });
+    } else if (/^\d+[.):]\s*/.test(trimmed) && trimmed.replace(/^\d+[.):]\s*/, "").length > 0) {
+      const content = trimmed.replace(/^\d+[.):]\s*/, "");
+      const last = groups[groups.length - 1];
+      if (last?.type === "numbered") last.lines.push(content);
+      else groups.push({ type: "numbered", lines: [content] });
+    } else if (trimmed) {
+      const last = groups[groups.length - 1];
+      if (last?.type === "text") last.lines.push(trimmed);
+      else groups.push({ type: "text", lines: [trimmed] });
+    }
+  });
+  return groups;
+}
+
 /* ─── Metal variant info from the API ─── */
 interface AvailableVariant {
   _id: string;
@@ -564,20 +588,49 @@ export function ProductDetailClient({
 
   return (
     <>
-    <div className="grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-12">
-      {/* Gallery */}
+    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-2 lg:gap-10">
+      {/* Gallery + Description (nested so desc sits tight under images) */}
       <div className="min-w-0">
         <ProductGallery
           images={galleryImages}
           productName={product.name}
           videos={product.videos}
         />
+
+        {product.description && (
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-charcoal-600">
+              Description
+            </h3>
+            <div className="mt-2 text-sm leading-relaxed text-charcoal-400">
+              {parseDescriptionGroups(product.description).map((group, i) =>
+                group.type === "bullet" ? (
+                  <ul key={i} className="mt-2 list-inside list-disc space-y-1">
+                    {group.lines.map((item, j) => (
+                      <li key={j}>{item}</li>
+                    ))}
+                  </ul>
+                ) : group.type === "numbered" ? (
+                  <ol key={i} className="mt-2 list-inside list-decimal space-y-1">
+                    {group.lines.map((item, j) => (
+                      <li key={j}>{item}</li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p key={i} className={i > 0 ? "mt-2" : ""}>
+                    {group.lines.join(" ")}
+                  </p>
+                )
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Details */}
       <div className="flex min-w-0 flex-col">
         {/* Price */}
-        <div className="mt-4">
+        <div className="mt-2 lg:mt-0">
           <PriceBreakdown
             product={{
               metalComposition: displayMetalComposition,
@@ -792,7 +845,7 @@ export function ProductDetailClient({
 
         {/* Bar product details grid */}
         {isBarProduct && product.barSpecs && (
-          <div className="mt-8">
+          <div className="mt-6">
             <h3 className="text-sm font-semibold text-charcoal-600 mb-3">
               Product Details
             </h3>
@@ -877,7 +930,7 @@ export function ProductDetailClient({
         )}
 
         {/* CTA Buttons — hidden on mobile (shown in sticky bar instead) */}
-        <div className="mt-6 hidden md:flex flex-col gap-3">
+        <div className="mt-5 hidden md:flex flex-col gap-3">
           <button
             type="button"
             onClick={handleAddToCart}

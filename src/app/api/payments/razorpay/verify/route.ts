@@ -3,7 +3,10 @@ import { ZodError } from "zod";
 import dbConnect from "@/lib/db";
 import Order from "@/models/Order";
 import { razorpayVerifySchema } from "@/lib/validators/order";
-import { verifyPaymentSignature } from "@/lib/razorpay";
+import {
+  assertPaymentMatchesOrder,
+  verifyPaymentSignature,
+} from "@/lib/razorpay";
 import { applyPaymentCaptured } from "@/lib/order-payment";
 import { orderToEmailData, sendPaymentConfirmedEmail } from "@/lib/email";
 
@@ -20,6 +23,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Order not found" },
         { status: 404 }
+      );
+    }
+
+    if (order.status === "cancelled") {
+      return NextResponse.json(
+        { success: false, error: "Order is cancelled" },
+        { status: 400 }
+      );
+    }
+
+    if (order.payment.method !== "razorpay") {
+      return NextResponse.json(
+        { success: false, error: "Order is not a Razorpay payment" },
+        { status: 400 }
       );
     }
 
@@ -42,6 +59,19 @@ export async function POST(request: NextRequest) {
     if (!valid) {
       return NextResponse.json(
         { success: false, error: "Invalid payment signature" },
+        { status: 400 }
+      );
+    }
+
+    const match = await assertPaymentMatchesOrder({
+      paymentId: validated.razorpayPaymentId,
+      razorpayOrderId: validated.razorpayOrderId,
+      expectedAmountInr: order.totalAmount,
+    });
+
+    if (!match.ok) {
+      return NextResponse.json(
+        { success: false, error: match.error },
         { status: 400 }
       );
     }

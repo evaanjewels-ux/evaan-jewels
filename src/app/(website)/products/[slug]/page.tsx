@@ -235,7 +235,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const category = product.category as { name: string; slug: string } | null;
 
   return (
-    <div className="py-8 md:py-12 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
+    <div className="py-6 md:py-10 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] md:pb-10">
       <JsonLd
         data={productJsonLd({
           name: product.name,
@@ -371,7 +371,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         {/* Size detail (gender is not shown on the product page) */}
         {product.size && (
-          <div className="mt-8 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-4">
             <div className="rounded-lg bg-charcoal-50 p-3">
               <p className="text-xs text-charcoal-400">Size</p>
               <p className="mt-0.5 font-medium text-charcoal-700">
@@ -381,72 +381,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
         )}
 
-        {/* Description */}
-        {product.description && (
-          <div className="mt-6">
-            <h3 className="text-sm font-semibold text-charcoal-600">
-              Description
-            </h3>
-            <div className="mt-2 max-w-prose text-sm leading-relaxed text-charcoal-400">
-              {(() => {
-                const lines = product.description.split('\n');
-                const groups: { type: 'text' | 'bullet' | 'numbered'; lines: string[] }[] = [];
-                lines.forEach((line: string) => {
-                  const trimmed = line.trim();
-                  // Bullet: lines starting with -, ->, •, * (with or without trailing space)
-                  if (/^(->|[-•*])\s*/.test(trimmed) && trimmed.replace(/^(->|[-•*])\s*/, '').length > 0) {
-                    const content = trimmed.replace(/^(->|[-•*])\s*/, '');
-                    const last = groups[groups.length - 1];
-                    if (last?.type === 'bullet') {
-                      last.lines.push(content);
-                    } else {
-                      groups.push({ type: 'bullet', lines: [content] });
-                    }
-                  // Numbered list: lines starting with 1. or 1) etc.
-                  } else if (/^\d+[.):]\s*/.test(trimmed) && trimmed.replace(/^\d+[.):]\s*/, '').length > 0) {
-                    const content = trimmed.replace(/^\d+[.):]\s*/, '');
-                    const last = groups[groups.length - 1];
-                    if (last?.type === 'numbered') {
-                      last.lines.push(content);
-                    } else {
-                      groups.push({ type: 'numbered', lines: [content] });
-                    }
-                  } else if (trimmed) {
-                    const last = groups[groups.length - 1];
-                    if (last?.type === 'text') {
-                      last.lines.push(trimmed);
-                    } else {
-                      groups.push({ type: 'text', lines: [trimmed] });
-                    }
-                  }
-                });
-                return groups.map((group, i) =>
-                  group.type === 'bullet' ? (
-                    <ul key={i} className="list-disc list-inside space-y-1 mt-2">
-                      {group.lines.map((item, j) => (
-                        <li key={j}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : group.type === 'numbered' ? (
-                    <ol key={i} className="list-decimal list-inside space-y-1 mt-2">
-                      {group.lines.map((item, j) => (
-                        <li key={j}>{item}</li>
-                      ))}
-                    </ol>
-                  ) : (
-                    <p key={i} className={i > 0 ? 'mt-2' : ''}>
-                      {group.lines.join(' ')}
-                    </p>
-                  )
-                );
-              })()}
-            </div>
-          </div>
-        )}
-
         {/* Related Products */}
         {relatedProducts.length > 0 && (
-          <section className="mt-16 border-t border-charcoal-100 pt-12">
+          <section className="mt-12 border-t border-charcoal-100 pt-8">
             <h2 className="mb-6 font-heading text-2xl font-bold text-charcoal-700">
               You May Also Like
             </h2>

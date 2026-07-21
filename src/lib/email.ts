@@ -135,7 +135,9 @@ export async function sendOrderPlacedEmail(order: OrderEmailData) {
       ? "Cash on Delivery"
       : order.paymentMethod === "razorpay"
         ? "Online (Razorpay)"
-        : order.paymentMethod;
+        : order.paymentMethod === "bank_transfer"
+          ? "Bank Transfer"
+          : order.paymentMethod;
 
   return sendMail({
     to: order.email,

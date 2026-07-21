@@ -58,6 +58,8 @@ export interface IPaymentInfo {
   paidAt?: Date;
   amount: number;
   notes?: string;
+  proofUrl?: string;
+  proofUploadedAt?: Date;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
@@ -153,6 +155,8 @@ const PaymentInfoSchema = new Schema(
     paidAt: { type: Date },
     amount: { type: Number, required: true, min: 0 },
     notes: { type: String, default: "" },
+    proofUrl: { type: String, default: "" },
+    proofUploadedAt: { type: Date },
     razorpayOrderId: { type: String, default: "", index: true },
     razorpayPaymentId: { type: String, default: "" },
     razorpaySignature: { type: String, default: "" },

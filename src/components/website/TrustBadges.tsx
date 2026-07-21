@@ -29,7 +29,7 @@ const badges = [
 
 export function TrustBadges() {
   return (
-    <section className="bg-charcoal-50/50 py-12 md:py-16">
+    <section className="bg-charcoal-50/50 py-8 md:py-10">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           variants={staggerContainer}

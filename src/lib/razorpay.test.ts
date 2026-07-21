@@ -10,9 +10,12 @@ describe("razorpay signature verify", () => {
   });
 
   it("accepts valid payment signature and rejects tampered ones", async () => {
-    const { verifyPaymentSignature, verifyWebhookSignature } = await import(
-      "@/lib/razorpay"
-    );
+    const {
+      verifyPaymentSignature,
+      verifyWebhookSignature,
+      paymentAmountMatchesOrder,
+      toPaise,
+    } = await import("@/lib/razorpay");
 
     const orderId = "order_ABC";
     const paymentId = "pay_XYZ";
@@ -44,5 +47,10 @@ describe("razorpay signature verify", () => {
       .digest("hex");
     expect(verifyWebhookSignature(body, whSig)).toBe(true);
     expect(verifyWebhookSignature(body, "bad")).toBe(false);
+    expect(verifyWebhookSignature(body, "")).toBe(false);
+
+    expect(toPaise(1999.5)).toBe(199950);
+    expect(paymentAmountMatchesOrder(50000, 500)).toBe(true);
+    expect(paymentAmountMatchesOrder(49999, 500)).toBe(false);
   });
 });

@@ -52,8 +52,21 @@ const orderItemSchema = z.object({
 export const orderCreateSchema = z.object({
   items: z.array(orderItemSchema).min(1, "At least one item is required").max(50),
   shippingAddress: shippingAddressSchema,
-  paymentMethod: z.enum(["razorpay"]),
+  paymentMethod: z.enum(["razorpay", "bank_transfer"]),
   customerNotes: z.string().max(500).optional().default(""),
+  /** UTR / reference for bank transfer (optional at place-order) */
+  transactionId: z.string().max(100).optional().default(""),
+  paymentNotes: z.string().max(500).optional().default(""),
+});
+
+export const paymentProofSchema = z.object({
+  orderNumber: z.string().min(5).max(30).trim(),
+  phone: z
+    .string()
+    .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number")
+    .trim(),
+  transactionId: z.string().max(100).optional().default(""),
+  paymentNotes: z.string().max(500).optional().default(""),
 });
 
 export const orderStatusUpdateSchema = z.object({
@@ -97,3 +110,4 @@ export type PaymentStatusUpdateInput = z.infer<
   typeof paymentStatusUpdateSchema
 >;
 export type RazorpayVerifyInput = z.infer<typeof razorpayVerifySchema>;
+export type PaymentProofInput = z.infer<typeof paymentProofSchema>;

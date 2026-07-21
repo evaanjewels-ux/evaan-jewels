@@ -53,16 +53,16 @@ export function ProductGrid({
   const displayViewAllLabel = viewAllLabelKey ? t(viewAllLabelKey) : viewAllLabel;
 
   return (
-    <section className="py-12 md:py-16 lg:py-20">
+    <section className="py-8 md:py-10 lg:py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="mb-10 flex items-end justify-between md:mb-12">
+        <div className="mb-6 flex items-end justify-between md:mb-8">
           <div>
             <h2 className="font-heading text-2xl font-bold text-charcoal-700 sm:text-3xl">
               {displayTitle}
             </h2>
             {displaySubtitle && (
-              <p className="mt-2 text-charcoal-400">{displaySubtitle}</p>
+              <p className="mt-1.5 text-charcoal-400">{displaySubtitle}</p>
             )}
           </div>
           {viewAllHref && (

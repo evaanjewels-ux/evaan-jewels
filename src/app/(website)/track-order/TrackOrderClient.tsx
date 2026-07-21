@@ -245,7 +245,9 @@ export function TrackOrderClient() {
                     ? " · Razorpay"
                     : order.payment.method === "cod"
                       ? " · COD"
-                      : ""}
+                      : order.payment.method === "bank_transfer"
+                        ? " · Bank Transfer"
+                        : ""}
                 </p>
               </div>
             </div>

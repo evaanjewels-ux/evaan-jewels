@@ -208,21 +208,19 @@ export default async function CategoryPage({
               { label: category.name },
             ]}
           />
-          <div className="mt-4 flex items-end justify-between">
-            <div>
-              <h1 className="font-heading text-3xl font-bold text-charcoal-700 sm:text-4xl">
-                {category.name}
-              </h1>
-              {category.description && (
-                <p className="mt-2 max-w-lg text-charcoal-400">
-                  {category.description}
-                </p>
-              )}
-              <p className="mt-1 text-sm text-charcoal-300">
-                {pagination.total}{" "}
-                {pagination.total === 1 ? "product" : "products"}
+          <div className="mt-6 mx-auto max-w-3xl text-center">
+            <h1 className="font-heading text-3xl font-bold text-charcoal-700 sm:text-4xl">
+              {category.name}
+            </h1>
+            {category.description && (
+              <p className="mt-3 text-sm leading-relaxed text-charcoal-400 sm:text-base">
+                {category.description}
               </p>
-            </div>
+            )}
+            <p className="mt-2 text-sm text-charcoal-300">
+              {pagination.total}{" "}
+              {pagination.total === 1 ? "product" : "products"}
+            </p>
           </div>
         </div>
 

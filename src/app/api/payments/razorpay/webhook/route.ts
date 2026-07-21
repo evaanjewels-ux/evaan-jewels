@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Order from "@/models/Order";
-import { verifyWebhookSignature } from "@/lib/razorpay";
+import {
+  paymentAmountMatchesOrder,
+  verifyWebhookSignature,
+} from "@/lib/razorpay";
 import { applyPaymentCaptured, applyPaymentFailed } from "@/lib/order-payment";
 import {
   orderToEmailData,
@@ -32,6 +35,7 @@ export async function POST(request: NextRequest) {
             order_id: string;
             status: string;
             amount: number;
+            currency?: string;
           };
         };
         order?: {
@@ -69,6 +73,25 @@ export async function POST(request: NextRequest) {
       event.event === "order.paid"
     ) {
       if (paymentEntity?.id) {
+        if (
+          paymentEntity.amount != null &&
+          !paymentAmountMatchesOrder(
+            paymentEntity.amount,
+            order.totalAmount
+          )
+        ) {
+          console.error(
+            "Razorpay webhook amount mismatch",
+            order.orderNumber,
+            paymentEntity.amount,
+            order.totalAmount
+          );
+          return NextResponse.json(
+            { success: false, error: "Amount mismatch" },
+            { status: 400 }
+          );
+        }
+
         const changed = applyPaymentCaptured(order, {
           paymentId: paymentEntity.id,
           razorpayOrderId,

@@ -145,7 +145,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = useCallback((item: ICartItem) => {
     dispatch({ type: "ADD_ITEM", payload: item });
-    toast.success(`${item.name} added to cart`);
+    dispatch({ type: "SET_CART_OPEN", payload: true });
   }, []);
 
   const removeItem = useCallback((cartItemId: string) => {

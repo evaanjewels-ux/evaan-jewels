@@ -12,6 +12,7 @@ import {
   getRazorpayKeyId,
 } from "@/lib/razorpay";
 import { auth } from "@/lib/auth";
+import { orderToEmailData, sendOrderPlacedEmail } from "@/lib/email";
 import { ITEMS_PER_PAGE } from "@/constants";
 import type { IProduct } from "@/types";
 
@@ -191,15 +192,21 @@ export async function POST(request: NextRequest) {
       if (existing) userId = String(existing._id);
     }
 
+    const isBankTransfer = validated.paymentMethod === "bank_transfer";
+
     const order = await Order.create({
       orderNumber,
       user: userId || undefined,
       items: orderItems,
       shippingAddress: validated.shippingAddress,
       payment: {
-        method: "razorpay",
+        method: validated.paymentMethod,
         status: "pending",
         amount: totalAmount,
+        transactionId: isBankTransfer
+          ? validated.transactionId || ""
+          : "",
+        notes: isBankTransfer ? validated.paymentNotes || "" : "",
       },
       subtotal,
       shippingCharge,
@@ -210,11 +217,43 @@ export async function POST(request: NextRequest) {
       timeline: [
         {
           status: "pending",
-          message: "Order created. Awaiting Razorpay payment.",
+          message: isBankTransfer
+            ? "Order created. Awaiting bank transfer and verification."
+            : "Order created. Awaiting Razorpay payment.",
           timestamp: new Date(),
         },
       ],
     });
+
+    if (isBankTransfer) {
+      const emailData = orderToEmailData(order);
+      if (emailData && !order.emailsSent?.placed) {
+        try {
+          await sendOrderPlacedEmail(emailData);
+          order.emailsSent = { ...order.emailsSent, placed: true };
+          await order.save();
+        } catch (e) {
+          console.error("Order placed email failed:", e);
+        }
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            orderNumber: order.orderNumber,
+            totalAmount: order.totalAmount,
+            status: order.status,
+            paymentMethod: order.payment.method,
+            paymentStatus: order.payment.status,
+            _id: order._id,
+          },
+          message:
+            "Order created. Transfer the amount and upload payment proof.",
+        },
+        { status: 201 }
+      );
+    }
 
     // Razorpay: create gateway order before returning checkout payload
     let rzOrder;

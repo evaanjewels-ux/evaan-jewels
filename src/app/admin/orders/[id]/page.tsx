@@ -79,6 +79,8 @@ interface OrderDetail {
     transactionId?: string;
     paidAt?: string;
     notes?: string;
+    proofUrl?: string;
+    proofUploadedAt?: string;
     razorpayOrderId?: string;
     razorpayPaymentId?: string;
   };
@@ -672,6 +674,40 @@ export default function OrderDetailPage() {
                   <span className="font-mono text-xs text-charcoal-700">
                     {order.payment.transactionId}
                   </span>
+                </div>
+              )}
+              {order.payment.notes && (
+                <div className="mt-2 rounded-lg bg-charcoal-50 p-2 text-xs text-charcoal-600">
+                  <span className="font-medium text-charcoal-500">
+                    Customer payment note:{" "}
+                  </span>
+                  {order.payment.notes}
+                </div>
+              )}
+              {order.payment.proofUrl && (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-charcoal-500">
+                    Payment proof
+                  </p>
+                  <a
+                    href={order.payment.proofUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 block overflow-hidden rounded-lg border border-charcoal-100"
+                  >
+                    <Image
+                      src={order.payment.proofUrl}
+                      alt="Payment proof"
+                      width={400}
+                      height={300}
+                      className="h-auto w-full object-contain bg-charcoal-50"
+                    />
+                  </a>
+                  {order.payment.proofUploadedAt && (
+                    <p className="mt-1 text-[10px] text-charcoal-300">
+                      Uploaded {formatDate(order.payment.proofUploadedAt)}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
